@@ -1,0 +1,27 @@
+name:                streaming-osm
+version:             1.0.0
+synopsis:            A hand-written streaming byte parser for OpenStreetMap Protobuf data.
+description:         A hand-written streaming byte parser for OpenStreetMap Protobuf data.
+license:             BSD3
+license-file:        LICENSE
+author:              Colin Woodbury
+maintainer:          colingw@gmail.com
+-- copyright:
+category:            Streaming
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Streaming.Osm.Util
+
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.9 && <4.10
+                     , bytestring
+
+  hs-source-dirs:      src
+
+  default-language:    Haskell2010
+
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds
