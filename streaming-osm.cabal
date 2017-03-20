@@ -17,11 +17,24 @@ library
 
   -- other-modules:
   -- other-extensions:
+
   build-depends:       base >=4.9 && <4.10
                      , bytestring
 
   hs-source-dirs:      src
-
   default-language:    Haskell2010
-
   ghc-options: -fwarn-unused-imports -fwarn-unused-binds
+
+test-suite streaming-osm-test
+  type:                exitcode-stdio-1.0
+
+  build-depends:       base >= 4.9 && < 4.10
+                     , bytestring
+                     , streaming-osm
+                     , tasty >= 0.11 && < 0.12
+                     , tasty-hunit >= 0.9 && < 0.10
+
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  default-language:    Haskell2010
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -threaded
