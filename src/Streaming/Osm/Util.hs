@@ -24,5 +24,27 @@ foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) ze
 --   1. If the MSB of a byte is 1, then expect at least the next byte to belong to this value.
 --   2. If the MSB of a byte is 0, we're at the end of the current accumulating value (or
 --      at the first byte of a single byte value).
-groupBytes :: BS.ByteString -> [BS.ByteString]
-groupBytes = BS.groupBy (\a _ -> testBit a 7)
+--groupBytes :: BS.ByteString -> [BS.ByteString]
+--groupBytes = BS.groupBy (\a _ -> testBit a 7)
+
+{-
+Bytes: 0x03, 0x8E, 0x02, 0x9E, 0xA7, 0x05
+
+03        // 0000 0011
+8E 02     // 1000 1110 0000 0010
+9E A7 05  // 1001 1110 1010 0111 0000 0101
+
+270: 100001110
+86942: 10101001110011110
+1424457998: 10101001110011110 00000100001110
+
+With `break`, the Word8 that passes the test is included in the remainder.
+With `breakEnd`, the opposite is true.
+
+Solution? Write a parser for this?
+
+Either way, it seems that `groupBy` does not behave as I expected.
+`groupBytes` is probably not want I want to do in general either, since a
+given packed field could be very long. Is it best to keep it as a
+ByteString? Stream it? Hm.
+-}
