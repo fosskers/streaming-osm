@@ -9,6 +9,7 @@ import qualified Data.ByteString as BS
 -- rules outlined in `groupBytes`.
 foldBytes :: (Num a, Bits a) => BS.ByteString -> a
 foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) zeroBits
+{-# INLINABLE foldBytes #-}
 
 -- | Break up a `BS.ByteString` that was parsed with wire-type 2
 -- (Length-delimited). These follow the pattern @tagByte byteCount bytes@,
