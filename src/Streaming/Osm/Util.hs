@@ -1,9 +1,21 @@
+{-# LANGUAGE BinaryLiterals #-}
+
 module Streaming.Osm.Util where
 
 import           Data.Bits
 import qualified Data.ByteString as BS
+import           Data.Word
 
 ---
+
+-- | Discover a field's number and /Wire Type/. The wire type is expected to
+-- be a value from 0 to 5. The field number itself can probably be any varint,
+-- although in practice these are in `Word8` range.
+--
+-- The results are left as `Word8`, since pattern matching on those should
+-- be faster.
+key :: Word8 -> (Word8, Word8)
+key w = (shiftR w 3, w .&. 0b00000111)
 
 -- | Fold a `BS.ByteString` into some number type, according to the special
 -- rules outlined in `groupBytes`.

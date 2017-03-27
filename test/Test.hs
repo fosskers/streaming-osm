@@ -21,6 +21,12 @@ suite = testGroup "Unit Tests"
       , testCase "270" $ foldBytes @Int (BS.pack [0x8e, 0x02]) @?= 270
       , testCase "86942" $ foldBytes @Int (BS.pack [0x9e, 0xa7, 0x05]) @?= 86942
       ]
+    , testGroup "key"
+      [ testCase "08" $ key 0x08 @?= (1, 0)
+      , testCase "12" $ key 0x12 @?= (2, 2)
+      , testCase "1a" $ key 0x1a @?= (3, 2)
+      , testCase "22" $ key 0x22 @?= (4, 2)
+      ]
 --    , testGroup "groupBytes"
 --      [ testCase "03 8E 02 9E A7 05" groupBytesT
 --      ]
