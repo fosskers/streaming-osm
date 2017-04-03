@@ -2,7 +2,7 @@
 #+AUTHOR: Colin
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="/home/colin/code/org-theme.css"/>
 
-* Protobuf
+* Protocol Buffers
 
 ** Encoding
 
@@ -76,10 +76,10 @@ Embedded messages are treated the same way as Strings (or any wire type 2).
 #+END_EXAMPLE
 
 *** Optional and Repeated Elements
-Anything marked /repeated/ (but without /[packed=true]/) just appears as
+Anything marked ~repeated~ (but without ~[packed=true]~) just appears as
 zero or more key-value pairs with the same tag number.
 
-Anything marked /optional/ simply may or may not be present.
+Anything marked ~optional~ simply may or may not be present.
 
 From the Protobuf site:
 
@@ -126,9 +126,7 @@ protocol buffer parsers must be able to parse fields in any order ...
 Our parser can be written pretty cleanly if we ignore this warning and
 assume that the data is always sorted by field number.
 
-* streaming-osm
-
-** OSM PBF Format
+* OSM PBF Format
 
 Explanation of the spec: https://wiki.openstreetmap.org/wiki/PBF_Format
 
@@ -140,9 +138,9 @@ A /.osm.pbf/ is a repeating sequence of:
 - A serialized ~BlobHeader~
 - The header's corresponding ~Blob~
 
-*** Concepts
+** Concepts
 
-**** BlobHeader
+*** BlobHeader
 
 #+BEGIN_SRC C
   message BlobHeader {
@@ -169,7 +167,7 @@ unrecognized ones should be easy. Should we include logic for that in
 ~streaming-osm~? I suppose it wouldn't hurt, given that we'd already be
 pattern matching on ~OSMHeader~ and ~OSMData~ already.
 
-**** Blob
+*** Blob
 
 #+BEGIN_SRC C
   message Blob {
@@ -193,7 +191,9 @@ or both /2/ and /3/ together.
 We /might/ be able to ignore ~raw_size~ too. It seems to be only for
 verifying ~Blob~ sizes.
 
-**** HeaderBlock
+*** HeaderBlock
+
+The contents of a ~Blob~ if its type was marked as ~OSMHeader~.
 
 #+BEGIN_SRC C
   message HeaderBlock {
@@ -219,13 +219,226 @@ verifying ~Blob~ sizes.
   }
 #+END_SRC
 
-**** HeaderBBox
+*** HeaderBBox
 
 Doesn't matter. We know how many bytes it would be because of how embedded
 messages are encoded, so we can just ~take~ that many bytes and dump them.
 
-**** PrimitiveBlock
+*** PrimitiveBlock
 
+The contents of a ~Blob~ if its type was marked as ~OSMData~. We should
+expect 8,000 OSM Elements to be packed into one of these, but there could be
+more such that the 16mb rule stated above is obeyed.
+
+#+BEGIN_SRC C
+  message PrimitiveBlock {
+          /* Metadata table for the entire block */
+          required StringTable stringtable = 1;
+
+          /* The actual Element data */
+          repeated PrimitiveGroup primitivegroup = 2;
+
+          /* Necessary for restoring "real" LatLng values. The values stored
+           ,* in `PrimitiveGroup` are delta encoded (etc.) to save space.
+           ,*/
+          optional int32 granularity = 17 [default=100];
+          optional int64 lat_offset = 19 [default=0];
+          optional int64 lon_offset = 20 [default=0];
+
+          // Do we care about this?
+          optional int32 date_granularity = 18 [default=1000];
+  }
+#+END_SRC
+
+This conversion is important:
+
+#+BEGIN_EXAMPLE
+latitude = .000000001 * (lat_offset + (granularity * lat))
+longitude = .000000001 * (lon_offset + (granularity * lon))
+#+END_EXAMPLE
+
+This must be performed on every LatLng value we decode. But be careful of
+numeric conversion! ~lat_offset~, for instance, is an ~int64~.
+
+*** StringTable
+
+All strings found in any Element in this block are made into a unique set,
+and then ordered into a list. The encoded Elements then just store indexes
+into this table, kind of like VectorTiles (or perhaps it's VTs who got this
+idea from OSM.)
+
+#+BEGIN_SRC C
+  message StringTable {
+          /* Index 0 is always blank and unused, apparently. */
+          repeated bytes s = 1;
+  }
+#+END_SRC
+
+The beginning of the encoded ~StringTable~ will always look like this:
+
+#+BEGIN_EXAMPLE
+0a    // S 1 'stringtable'
+d4 2e // length 5972 bytes
+0a    // S 1
+00    // length 0 bytes
+0a    // S 1
+07    // length 7 bytes
+etc.
+#+END_EXAMPLE
+
+Notice how no data bytes following the ~00~; another tag-byte comes
+immediately.
+
+*** PrimitiveGroup
+
+~PrimitiveGroup~ is ~repeated~ within ~PrimitiveBlock~, and we can expected
+one Group for each Element type. Element types are *never* to mix in the
+same Group (i.e. ~PrimitiveGroups~ are homogeneous).
+
+#+BEGIN_SRC C
+  message PrimitiveGroup {
+          repeated Node       nodes = 1;
+          optional DenseNodes dense = 2;
+          repeated Way        ways = 3;
+          repeated Relation   relations = 4;
+
+          /* --- UNUSED, CAN IGNORED --- */
+          repeated ChangeSet  changesets = 5;
+  }
+#+END_SRC
+
+*** Node
+
+#+BEGIN_SRC C
+  message Node {
+          required sint64 id = 1;
+
+          /* Indices into the `StringTable`. These are "tag" metadata. */
+          repeated uint32 keys = 2 [packed = true];
+          repeated uint32 vals = 3 [packed = true];
+
+          /* The Element metadata, like changeset, timestamp etc. */
+          optional Info info = 4;
+
+          /* Location of the Node */
+          required sint64 lat = 8;
+          required sint64 lon = 9;
+  }
+#+END_SRC
+
+*** DenseNodes
+
+Delta-encoded Nodes, taking advantage of the fact that Nodes with nearby IDs
+will often be geographically near to each other as well.
+
+#+BEGIN_SRC C
+  message DenseNodes {
+          /* Delta-encoded parallel arrays */
+          repeated sint64 id  = 1 [packed = true];
+          repeated sint64 lat = 8 [packed = true];
+          repeated sint64 lon = 9 [packed = true];
+
+          /* Metadata */
+          optional DenseInfo denseinfo = 5;
+
+          /* [key, val, key, val, 0, key, val, 0, ...] */
+          repeated int32 keys_vals = 10 [packed = true];
+   }
+#+END_SRC
+
+In these, indices into the ~StringTable~ are stored in one array. ~0~ is
+used to separate one Node's tags from the next. /Caveat:/ if no nodes here
+have tags, then this list will be empty. Does that mean the
+field-num/wire-type will still be encoded, with a byte count of 0?
+
+*** Way
+
+#+BEGIN_SRC C
+  message Way {
+          required int64 id = 1;
+
+          /* Indices into the `StringTable`, same as Nodes */
+          repeated uint32 keys = 2 [packed = true];
+          repeated uint32 vals = 3 [packed = true];
+
+          optional Info info = 4;
+
+          /* Delta-encoded refs to this Way's Nodes */
+          repeated sint64 refs = 8 [packed = true];
+  }
+#+END_SRC
+
+*** Relation
+
+#+BEGIN_SRC C
+  message Relation {
+          enum MemberType {
+                  NODE = 0;
+                  WAY = 1;
+                  RELATION = 2;
+          }
+          required int64 id = 1;
+
+          /* Same as Nodes and Ways */
+          repeated uint32 keys = 2 [packed = true];
+          repeated uint32 vals = 3 [packed = true];
+
+          optional Info info = 4;
+
+          /* Indices into the `StringTable` to find the "role" value */
+          repeated int32 roles_sid = 8 [packed = true];
+
+          /* IDs of the Relation's children */
+          repeated sint64 memids = 9 [packed = true]; // DELTA encoded
+
+          /* Types of the child Elements */
+          repeated MemberType types = 10 [packed = true];
+  }
+#+END_SRC
+
+*** Info
+
+Non-geographic metadata.
+
+#+BEGIN_SRC C
+  message Info {
+          optional int32 version = 1 [default = -1];
+          optional int32 timestamp = 2;
+          optional int64 changeset = 3;
+          optional int32 uid = 4;
+
+          /* Index into the `StringTable` to find the username */
+          optional int32 user_sid = 5;
+
+          optional bool visible = 6;
+  }
+#+END_SRC
+
+~timestamp~ here needs to adjusted by the ~date_granularity~ found in the
+parent ~PrimitiveBlock~ by the following formula:
+
+#+BEGIN_EXAMPLE
+millisec_stamp = timestamp * date_granularity
+#+END_EXAMPLE
+
+Where the final result is the number of millis since the 1970 epoch.
+
+*** DenseInfo
+
+#+BEGIN_SRC C
+  message DenseInfo {
+          /* Delta-encoded parallel arrays */
+          repeated int32 version = 1 [packed = true];  // Not delta encoded
+          repeated sint64 timestamp = 2 [packed = true];
+          repeated sint64 changeset = 3 [packed = true];
+          repeated sint32 uid = 4 [packed = true];
+          repeated sint32 user_sid = 5 [packed = true];
+
+          repeated bool visible = 6 [packed = true];
+  }
+#+END_SRC
+
+* streaming-osm
 ** Parsing
 
 During parsing, we'll often run into int values that tell us how many bytes
