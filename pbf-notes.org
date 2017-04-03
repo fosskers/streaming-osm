@@ -1,0 +1,266 @@
+#+TITLE: Draenor Project Notes
+#+AUTHOR: Colin
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="/home/colin/code/org-theme.css"/>
+
+* Protobuf
+
+** Encoding
+
+https://developers.google.com/protocol-buffers/docs/encoding
+
+*** Example Message
+
+#+BEGIN_SRC js
+  message Test1 {
+    required int32 a = 1;
+  }
+#+END_SRC
+
+Setting /a/ to /150/ would output: /08 96 01/
+
+*** Field Number + "Wire Type"
+
+A key is a varint stored as: ~(field_number << 3) | wire_type~
+
+See the link above for the wire types.
+
+*** Analysis
+
+/08/ is /000 1000/ with its msb removed.
+
+- Right-most three bits gives the Wire Type: 0
+- Right-shift by 3 gets the field number: 1
+
+- /96 01/ becomes /1001 0110 0000 0001/
+- Remove msbs: /001 0110 000 0001/
+- Reverse groups of 7: /000 0001 001 0110/
+- Mash together: /00000010010110/
+- Reseparate: /1001 0110/ which is /150/
+
+*** Strings (wire type 2)
+
+#+BEGIN_SRC js
+  message Test2 {
+    required string b = 2;
+  }
+#+END_SRC
+
+Setting /b/ to "testing" gives: /12 07 74 65 73 74 69 6e 67/
+
+#+BEGIN_EXAMPLE
+12                    // 0001 0010 (field #2, wire type 2)
+07                    // "7 bytes to follow"
+74 65 73 74 69 6e 67  // the UTF8 string "testing"
+#+END_EXAMPLE
+
+/07/ is the numbers of bytes of data that follow. In this case, each byte is
+a byte of UTF8. The text is English, so we know each byte to correspond to
+one letter.
+
+*** Embedded Messages
+
+#+BEGIN_SRC js
+  message Test3 {
+    requires Test1 c = 3;
+  }
+#+END_SRC
+
+Once again setting /a/ to 150, we have: /1a 03 08 96 01/
+
+Embedded messages are treated the same way as Strings (or any wire type 2).
+
+#+BEGIN_EXAMPLE
+1a        // 0001 1010 (field #3, wire type 2)
+03        // "3 bytes to follow"
+08 96 01  // varint 150
+#+END_EXAMPLE
+
+*** Optional and Repeated Elements
+Anything marked /repeated/ (but without /[packed=true]/) just appears as
+zero or more key-value pairs with the same tag number.
+
+Anything marked /optional/ simply may or may not be present.
+
+From the Protobuf site:
+
+#+BEGIN_QUOTE
+Normally, an encoded message would never have more than one instance of a
+non-repeated field. However, parsers are expected to handle the case in
+which they do.
+#+END_QUOTE
+
+We can go faster if we ignore this condition, and assume each field will
+only appear once.
+
+**** Packed Repeated Fields
+
+#+BEGIN_SRC js
+  message Test 4 {
+    repeated int32 d = 4 [packed=true];
+  }
+#+END_SRC
+
+Giving /d/ 3, 270, and 86942, we get:
+
+/22 06 03 8E 02 9E A7 05/
+
+#+BEGIN_EXAMPLE
+22        // 0010 0010 - tag (field number 4, wire type 2)
+06        // 0000 0110 - payload size (6 bytes)
+03        // 0000 0011 - first element (varint 3)
+8E 02     // 1000 1110 0000 0010 - second element (varint 270)
+9E A7 05  // 1001 1110 1010 0111 0000 0101 - third element (varint 86942)
+#+END_EXAMPLE
+
+*** Field Order
+
+From the Protobuf spec:
+
+#+BEGIN_QUOTE
+...when a message is serialized its known fields should be written
+sequentially by field number ... This allows parsing code to use
+optimizations that rely on field numbers being in sequence. However,
+protocol buffer parsers must be able to parse fields in any order ...
+#+END_QUOTE
+
+Our parser can be written pretty cleanly if we ignore this warning and
+assume that the data is always sorted by field number.
+
+* streaming-osm
+
+** OSM PBF Format
+
+Explanation of the spec: https://wiki.openstreetmap.org/wiki/PBF_Format
+
+Official /.proto/ files: https://github.com/scrosby/OSM-binary/tree/master/src
+
+A /.osm.pbf/ is a repeating sequence of:
+
+- An /int4/ length of the ~BlobHeader~ message
+- A serialized ~BlobHeader~
+- The header's corresponding ~Blob~
+
+*** Concepts
+
+**** BlobHeader
+
+#+BEGIN_SRC C
+  message BlobHeader {
+          /* Either "OSMHeader" or "OSMData" */
+          required string type = 1;
+
+          /* Some optional metadata (bbox, etc.) */
+          optional bytes indexdata = 2;
+
+          /* The number of bytes in the subsequent `Blob` */
+          required int32 datasize = 3;
+  }
+#+END_SRC
+
+Every fileblock must have a ~Blob~ labelled as a ~OSMHeader~ before its
+blocks labelled ~OSMData~. Note:
+
+#+BEGIN_QUOTE
+Parsers should ignore and skip fileblock types that they do not recognize.
+#+END_QUOTE
+
+Since we would know the size of the ~Blob~ from its header, skipping
+unrecognized ones should be easy. Should we include logic for that in
+~streaming-osm~? I suppose it wouldn't hurt, given that we'd already be
+pattern matching on ~OSMHeader~ and ~OSMData~ already.
+
+**** Blob
+
+#+BEGIN_SRC C
+  message Blob {
+          /* --- UNCOMPRESSED DATA --- */
+          optional bytes raw = 1;  // Should be less than 16mb!
+
+          /* --- COMPRESSED DATA --- */
+          optional int32 raw_size = 2;  // uncompressed size if compressed
+          optional bytes zlib_data = 3;
+
+          /* --- UNUSED FIELDS, CAN IGNORE --- */
+          optional bytes lzma_data = 4;
+          optional bytes OBSOLETE_bzip2_data = 5 [deprecated=true];
+  }
+#+END_SRC
+
+Uncompressed, any ~Blob~ /should/ contain less than 16mb, and /must/ contain
+less than 32mb of data. Any given blob with either have only the /1/ field,
+or both /2/ and /3/ together.
+
+We /might/ be able to ignore ~raw_size~ too. It seems to be only for
+verifying ~Blob~ sizes.
+
+**** HeaderBlock
+
+#+BEGIN_SRC C
+  message HeaderBlock {
+          /* Can be:
+           ,*  - OsmSchema-V0.6
+           ,*  - DenseNodes
+           ,*  - HistoricalInformation
+           ,*
+           ,* The idea being that a serialized file will declare how robust
+           ,* of a parser it needs, and parsers can reject files that
+           ,* ask for things they can't decode.
+           ,*/
+          repeated string required_features = 4;
+
+          /* --- IGNORABLE --- */
+          optional HeaderBBox bbox = 1; /* The bounding box of a Block */
+          repeated string optional_features = 5;
+          optional string writingprogram = 16;
+          optional string source = 17;
+          optional int64 osmosis_replication_timestamp = 32;
+          optional int64 osmosis_replication_sequence_number = 33;
+          optional string osmosis_replication_base_url = 34;
+  }
+#+END_SRC
+
+**** HeaderBBox
+
+Doesn't matter. We know how many bytes it would be because of how embedded
+messages are encoded, so we can just ~take~ that many bytes and dump them.
+
+**** PrimitiveBlock
+
+** Parsing
+
+During parsing, we'll often run into int values that tell us how many bytes
+forward to expect to belong to the current "block" (chars in a string,
+repeated packed values, etc.) that we're parsing. /Attoparsec/ gives us this:
+
+#+BEGIN_SRC haskell
+  take :: Int -> Parser ByteString
+#+END_SRC
+
+How do we extract the final values from the ~ByteString~? If we use ~take~,
+the entire ~ByteString~ will be brought into memory. Is that bad? It might
+not be, depending on how long we expect such fields to be in the specific
+case of OSM, and also the /type/ of value we hope to parse.
+
+*** Strings
+
+UTF8 might seem like it presents a challenge, but really this is the easy
+case. Interpretting any given ~ByteString~ as UTF8 text is trivial with the
+~bytestring~ library. In the case of a field that we know to be a String, we
+can use ~take~ above and marshall the result directly to a ~Text~ value (or
+just leave it as a ~ByteString~? That would be fastest. Besides, we might be
+rewriting it again right away.)
+
+*** Packed Repeated Fields
+
+Only primitive numeric types can be declared as /packed/. That means they're
+all just stored as /varints/, so we have to test the leading bit of each
+byte to determine the break point between different values. I attempted a
+~groupBytes~ function previously, but ~ByteString.groupBy~ did not behave as
+I expected it to.
+
+*** Embedded Messages
+
+Off the top of my head, it seems like you can ignore the "following bytes"
+number given, and just parse what you expect to be there via the parser of
+the Message that happens to be embedded. Will we ever overrun and gobble too
+many bytes this way?
