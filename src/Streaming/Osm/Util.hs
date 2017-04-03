@@ -12,10 +12,19 @@ import           Data.Word
 -- be a value from 0 to 5. The field number itself can probably be any varint,
 -- although in practice these are in `Word8` range.
 --
--- The results are left as `Word8`, since pattern matching on those should
+-- The results are left as numbers, since pattern matching on those should
 -- be faster.
-key :: Word8 -> (Word8, Word8)
+key :: (Num t, Bits t) => t -> (t, t)
 key w = (shiftR w 3, w .&. 0b00000111)
+{-# INLINABLE key #-}
+
+-- | For the case when two bytes denote the field number and /Wire Type/. We
+-- know that for OSM data, the highest field number is 34. Encoding 34 with any
+-- wire type takes 2 bytes, so we know we'll never need to check for more.
+key2 :: Word8 -> Word8 -> (Word16, Word16)
+key2 w1 w0 = key $ shift (to16 w0) 7 .|. to16 (clearBit w1 7)
+  where to16 :: Word8 -> Word16
+        to16 = fromIntegral
 
 -- | Fold a `BS.ByteString` into some number type, according to the special
 -- rules outlined in `groupBytes`.
