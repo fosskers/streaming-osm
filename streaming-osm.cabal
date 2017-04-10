@@ -25,6 +25,7 @@ library
                      , streaming >= 0.1 && < 0.2
                      , streaming-bytestring >= 0.1 && < 0.2
                      , text
+                     , zlib >= 0.6 && < 0.7
 
   hs-source-dirs:      src
   default-language:    Haskell2010
