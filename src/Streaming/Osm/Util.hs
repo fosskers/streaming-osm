@@ -3,7 +3,7 @@
 module Streaming.Osm.Util
   ( key
   , key2
-  , foldBytes
+  , foldBytes, foldBytes'
   -- * Helpers for writing the Parser
   , unkey
   ) where
@@ -47,6 +47,12 @@ key2 w1 w0 = key $ shift (to16 w0) 7 .|. to16 (clearBit w1 7)
 foldBytes :: (Num a, Bits a) => BS.ByteString -> a
 foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) zeroBits
 {-# INLINABLE foldBytes #-}
+
+-- | Like the above, but takes a `Word8` as the initial accumulator. This is
+-- useful when parsing Varints with `Data.Attoparsec.ByteString.takeWhile`.
+foldBytes' :: (Num a, Bits a) => BS.ByteString -> Word8 -> a
+foldBytes' bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
+{-# INLINABLE foldBytes' #-}
 
 -- | Break up a `BS.ByteString` that was parsed with wire-type 2
 -- (Length-delimited). These follow the pattern @tagByte byteCount bytes@,

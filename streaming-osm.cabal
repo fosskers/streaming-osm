@@ -14,13 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Streaming.Osm
+                     , Streaming.Osm.Parser
                      , Streaming.Osm.Types
                      , Streaming.Osm.Util
 
-  -- other-modules:
-  -- other-extensions:
-
   build-depends:       base >=4.9 && <4.10
+                     , attoparsec >= 0.13 && < 0.14
                      , bytestring
                      , containers
                      , streaming >= 0.1 && < 0.2

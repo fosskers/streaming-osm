@@ -3,6 +3,7 @@
 module Main where
 
 import qualified Data.ByteString as BS
+import           Data.Int
 import           Data.Word
 import           Streaming.Osm.Util
 import           Test.Tasty
@@ -18,6 +19,7 @@ suite = testGroup "Unit Tests"
   [ testGroup "Util"
     [ testGroup "foldBytes"
       [ testCase "3" $ foldBytes @Int (BS.pack [0x03]) @?= 3
+      , testCase "124" $ foldBytes @Int32 (BS.pack [0x7c]) @?= 124
       , testCase "150" $ foldBytes @Int (BS.pack [0x96, 0x01]) @?= 150
       , testCase "270" $ foldBytes @Int (BS.pack [0x8e, 0x02]) @?= 270
       , testCase "86942" $ foldBytes @Int (BS.pack [0x9e, 0xa7, 0x05]) @?= 86942

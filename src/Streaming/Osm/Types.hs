@@ -1,5 +1,16 @@
-module Streaming.Osm.Types where
+module Streaming.Osm.Types
+  ( -- * Elements
+    Element(..)
+  , Node(..)
+  , Way(..)
+  , Relation(..)
+  , Info(..)
+  -- * Helper Types
+  , BlobHeader(..)
+  ) where
 
+import qualified Data.ByteString as B
+import           Data.Int
 import qualified Data.Map as M
 import           Data.Text (Text)
 
@@ -49,3 +60,7 @@ data Info = Info { _id        :: Int
                  , _username  :: Maybe Text
                  , _visible   :: Maybe Bool
                  } deriving (Eq, Show)
+
+data BlobHeader = BlobHeader { blobType  :: B.ByteString
+                             , indexData :: Maybe B.ByteString
+                             , datasize  :: Int32 } deriving (Show)
