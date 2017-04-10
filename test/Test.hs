@@ -24,12 +24,25 @@ suite = testGroup "Unit Tests"
       ]
     , testGroup "key"
       [ testCase "08" $ key @Word8 0x08 @?= (1, 0)
+      , testCase "51" $ key @Word8 0x51 @?= (10, 1)
       , testCase "12" $ key @Word8 0x12 @?= (2, 2)
       , testCase "1a" $ key @Word8 0x1a @?= (3, 2)
       , testCase "22" $ key @Word8 0x22 @?= (4, 2)
+      , testCase "55" $ key @Word8 0x55 @?= (10, 5)
       ]
     , testGroup "key2"
       [ testCase "82 01" $ key2 0x82 0x01 @?= (16, 2)
+      , testCase "92 02" $ key2 0x92 0x02 @?= (34, 2)
+      ]
+    , testGroup "unkey"
+      [ testCase "34 string" $ unkey 34 2 @?= Left (0x92, 0x02)
+      , testCase "16 string" $ unkey 16 2 @?= Left (0x82, 0x01)
+      , testCase "01 varint" $ unkey 01 0 @?= Right 0x08
+      , testCase "02 string" $ unkey 02 2 @?= Right 0x12
+      , testCase "03 string" $ unkey 03 2 @?= Right 0x1a
+      , testCase "04 string" $ unkey 04 2 @?= Right 0x22
+      , testCase "10 64bit"  $ unkey 10 1 @?= Right 0x51
+      , testCase "10 32bit"  $ unkey 10 5 @?= Right 0x55
       ]
 --    , testGroup "groupBytes"
 --      [ testCase "03 8E 02 9E A7 05" groupBytesT
