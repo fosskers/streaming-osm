@@ -7,6 +7,7 @@ module Streaming.Osm.Types
   , Info(..)
   -- * Helper Types
   , BlobHeader(..)
+  , Blob(..)
   ) where
 
 import qualified Data.ByteString as B
@@ -64,3 +65,5 @@ data Info = Info { _id        :: Int
 data BlobHeader = BlobHeader { blobType  :: B.ByteString
                              , indexData :: Maybe B.ByteString
                              , datasize  :: Int32 } deriving (Show)
+
+data Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Show)

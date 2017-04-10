@@ -22,7 +22,17 @@ header = do
   d <- A.word8 0x18 *> varint
   pure $ BlobHeader t i d
 
+blob :: A.Parser Blob
+blob = Blob <$> A.eitherP dcmp comp
+  where dcmp = A.word8 0x0a *> varint >>= A.take
+        comp = (,) <$> (A.word8 0x10 *> varint) <*> (A.word8 0x1a *> varint >>= A.take)
+
 -- | Parse some Varint, which may be made up of multiple bytes.
 varint :: (Num a, Bits a) => A.Parser a
 varint = foldBytes' <$> A.takeWhile (\b -> testBit b 7) <*> A.anyWord8
 {-# INLINABLE varint #-}
+
+test :: IO (Either String (BlobHeader, Blob))
+test = do
+  bytes <- B.readFile "diomede.osm.pbf"
+  pure $ A.parseOnly ((,) <$> header <*> blob) bytes
