@@ -94,6 +94,9 @@ only appear once.
 
 **** Packed Repeated Fields
 
+If the repeated list is empty, this field is not present in the encoded
+message.
+
 #+BEGIN_SRC js
   message Test 4 {
     repeated int32 d = 4 [packed=true];
@@ -286,7 +289,7 @@ d4 2e // length 5972 bytes
 etc.
 #+END_EXAMPLE
 
-Notice how no data bytes following the ~00~; another tag-byte comes
+Notice how no data bytes follow the ~00~; another tag-byte comes
 immediately.
 
 *** PrimitiveGroup
@@ -302,7 +305,7 @@ same Group (i.e. ~PrimitiveGroups~ are homogeneous).
           repeated Way        ways = 3;
           repeated Relation   relations = 4;
 
-          /* --- UNUSED, CAN IGNORED --- */
+          /* --- UNUSED, CAN IGNORE --- */
           repeated ChangeSet  changesets = 5;
   }
 #+END_SRC
