@@ -1,0 +1,41 @@
+name: streaming-osm
+version: '1.0.0'
+synopsis: A hand-written streaming byte parser for OpenStreetMap Protobuf data.
+description: A hand-written streaming byte parser for OpenStreetMap Protobuf data.
+category: Streaming
+author: Colin Woodbury
+maintainer: colingw@gmail.com
+license: BSD3
+
+extra-source-files:
+  - ChangeLog.md
+
+ghc-options:
+  - -fwarn-unused-imports
+  - -fwarn-unused-binds
+
+dependencies:
+  - base >=4.9 && <4.10
+  - bytestring
+
+library:
+  source-dirs: src
+
+  dependencies:
+    - attoparsec >=0.13 && <0.14
+    - containers
+    - streaming >=0.1 && <0.2
+    - streaming-bytestring >=0.1 && <0.2
+    - text
+    - zlib >=0.6 && <0.7
+
+tests:
+  streaming-osm-test:
+    main: Test.hs
+    source-dirs: test
+    ghc-options:
+      - -threaded
+    dependencies:
+      - streaming-osm
+      - tasty >=0.11 && <0.12
+      - tasty-hunit >=0.9 && <0.10
