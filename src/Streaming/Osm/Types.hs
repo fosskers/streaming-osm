@@ -36,7 +36,7 @@ instance Element Node where
   tags = _ntags
 -}
 data Way = Way { _nodeRefs :: [Int]
-               , _winfo    :: Info
+               , _winfo    :: Maybe Info
                , _wtags    :: M.Map Text Text
                } deriving (Eq, Show)
 
@@ -72,7 +72,7 @@ data BlobHeader = BlobHeader { blobType  :: B.ByteString
                              , indexData :: Maybe B.ByteString
                              , datasize  :: Int32 } deriving (Show)
 
-data Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Eq, Show)
+newtype Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Eq, Show)
 
 -- | A group of ~8000 OSM Elements.
 data Block = Block { nodes :: [Node]

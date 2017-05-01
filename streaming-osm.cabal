@@ -25,13 +25,13 @@ library
       Streaming.Osm.Util
   build-depends:
       base >=4.9 && <4.10
-    , bytestring
     , attoparsec >=0.13 && <0.14
+    , bytestring
+    , vector >= 0.11 && < 0.13
     , containers
     , streaming >=0.1 && <0.2
     , streaming-bytestring >=0.1 && <0.2
     , text
-    , vector >= 0.11 && < 0.13
     , zlib >=0.6 && <0.7
   hs-source-dirs:
       src
@@ -42,7 +42,9 @@ test-suite streaming-osm-test
   type: exitcode-stdio-1.0
   build-depends:
       base >=4.9 && <4.10
+    , attoparsec >=0.13 && <0.14
     , bytestring
+    , vector >= 0.11 && < 0.13
     , streaming-osm
     , tasty >=0.11 && <0.12
     , tasty-hunit >=0.9 && <0.10
