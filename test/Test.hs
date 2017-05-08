@@ -49,6 +49,9 @@ suite = testGroup "Unit Tests"
       , testCase "10 64bit"  $ unkey 10 1 @?= Right 0x51
       , testCase "10 32bit"  $ unkey 10 5 @?= Right 0x55
       ]
+    , testGroup "breakOn0"
+      [ testCase "Simple" $ breakOn0 [0,0,0,0,7,2,9,5,0] @?= [[], [], [], [], [7,2,9,5]]
+      ]
 --    , testGroup "groupBytes"
 --      [ testCase "03 8E 02 9E A7 05" groupBytesT
 --      ]

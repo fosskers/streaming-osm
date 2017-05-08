@@ -10,6 +10,7 @@ import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Int
+import           Data.List (zipWith4)
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import           Data.Word
@@ -75,12 +76,12 @@ stringTable = V.fromList <$> A.many1 (A.word8 0x0a *> varint >>= A.take)
 node :: V.Vector B.ByteString -> A.Parser (Int64 -> Int64 -> Int64 -> Node)
 node st = do
   A.word8 0x0a *> varint @Int
-  i   <- unzig <$> (A.word8 0x08 *> varint @Word64)                   -- id
-  ks  <- (A.word8 0x12 *> varint @Int *> A.many1 varint) <|> pure []  -- keys
-  vs  <- (A.word8 0x1a *> varint @Int *> A.many1 varint) <|> pure []  -- vals
-  oi  <- optional (A.word8 0x22 *> infoP i st)                        -- info
-  lat <- unzig <$> (A.word8 0x40 *> varint @Word64)                   -- lat
-  lon <- unzig <$> (A.word8 0x48 *> varint @Word64)                   -- lon
+  i   <- unzig <$> (A.word8 0x08 *> varint @Word64)                     -- id
+  ks  <- packed id <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
+  vs  <- packed id <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
+  oi  <- optional (A.word8 0x22 *> infoP i st)                          -- info
+  lat <- unzig <$> (A.word8 0x40 *> varint @Word64)                     -- lat
+  lon <- unzig <$> (A.word8 0x48 *> varint @Word64)                     -- lon
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ (\gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) oi ts)
 
@@ -88,16 +89,22 @@ node st = do
 dense :: V.Vector B.ByteString -> A.Parser [Int64 -> Int64 -> Int64 -> Node]
 dense st = do
   A.word8 0x12 *> varint @Int
-  ids <- packed <$> (A.word8 0x0a *> varint >>= A.take)
+  ids <- packed unzig <$> (A.word8 0x0a *> varint >>= A.take)
   optional (A.word8 0x2a *> varint >>= A.take)  -- TODO: Don't drop these bytes!
-  lts <- packed <$> (A.word8 0x42 *> varint >>= A.take)
-  lns <- packed <$> (A.word8 0x4a *> varint >>= A.take)
-  kvs <- (packed <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []  -- not quite right.
-  pure $ zipWith3 f ids lts lns
-  where f i lat lon = \gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) Nothing M.empty
+  lts <- packed unzig <$> (A.word8 0x42 *> varint >>= A.take)
+  lns <- packed unzig <$> (A.word8 0x4a *> varint >>= A.take)
+  kvs <- (packed id <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []
+  pure $ zipWith4 f ids lts lns (denseTags st kvs)
+  where f i lat lon ts = \gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) Nothing ts
 
-packed :: B.ByteString -> [Int64]
-packed bs = either (const []) id $ A.parseOnly (A.many1 (unzig <$> varint)) bs
+-- | Interpret a list of flattened key-value pairs as Tag metadata `Map`s.
+denseTags :: V.Vector B.ByteString -> [Int] -> [M.Map B.ByteString B.ByteString]
+denseTags st = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) . breakOn0
+
+-- | Reparse a `B.ByteString` as a list of some Varints.
+packed :: (Bits a, Num a) => (a -> t) -> B.ByteString -> [t]
+packed f bs = either (const []) id $ A.parseOnly (A.many1 (f <$> varint)) bs
+{-# INLINABLE packed #-}
 
 way :: V.Vector B.ByteString -> A.Parser Way
 way st = undefined
@@ -138,12 +145,12 @@ booly _ = Nothing
 --test :: IO (Either String [B.ByteString])
 test :: IO ()
 test = do
-  bytes <- B.readFile "diomede.osm.pbf"
+  bytes <- B.readFile "shrine.osm.pbf"
   case A.parseOnly ((,,,) <$> header <*> blob <*> header <*> blob) bytes of
     Left err -> putStrLn err
     Right (_, _, _, Blob (Left bs)) -> print $ A.parseOnly block bs
     Right (_, _, _, Blob (Right (_, bs))) -> print . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
---    Right (_, _, _, Blob (Right (_, bs))) -> BL.writeFile "TINY-BYTES" . decompress $ BL.fromStrict bs
+--    Right (_, _, _, Blob (Right (_, bs))) -> BL.writeFile "SHRINE-BYTES" . decompress $ BL.fromStrict bs
 
 --    where f (Blob { bytes = Left bs }) = A.parseOnly block bs
 --          f (Blob { bytes = Right (_, bs) }) = A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs

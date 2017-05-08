@@ -4,6 +4,9 @@ module Streaming.Osm.Util
   ( key
   , key2
   , foldBytes, foldBytes'
+  , breakOn0
+  , pairs
+  , both
   -- * Helpers for writing the Parser
   , unkey
   ) where
@@ -53,6 +56,23 @@ foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) ze
 foldBytes' :: (Num a, Bits a) => BS.ByteString -> Word8 -> a
 foldBytes' bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
 {-# INLINABLE foldBytes' #-}
+
+-- | `words` for `Int`, where 0 is the whitespace. Implementation adapted
+-- from `words`.
+breakOn0 :: [Int] -> [[Int]]
+breakOn0 [] = []
+breakOn0 ns = xs : breakOn0 ys
+  where (xs, (0 : ys)) = span (/= 0) ns
+
+-- | A sort of "self-zip", forming pairs from every two elements in a list.
+-- Assumes that the list is of even length.
+pairs :: [a] -> [(a,a)]
+pairs [] = []
+pairs (x:y:zs) = (x,y) : pairs zs
+
+-- | Apply a function to both elements of a tuple.
+both :: (a -> b) -> (a, a) -> (b, b)
+both f (a,b) = (f a, f b)
 
 -- | Break up a `BS.ByteString` that was parsed with wire-type 2
 -- (Length-delimited). These follow the pattern @tagByte byteCount bytes@,
