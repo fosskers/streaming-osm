@@ -27,6 +27,7 @@ library:
     - streaming >=0.1 && <0.2
     - streaming-bytestring >=0.1 && <0.2
     - text
+    - transformers
     - zlib >=0.6 && <0.7
 
 tests:

@@ -77,23 +77,23 @@ node :: V.Vector B.ByteString -> A.Parser (Int64 -> Int64 -> Int64 -> Node)
 node st = do
   A.word8 0x0a *> varint @Int
   i   <- unzig <$> (A.word8 0x08 *> varint @Word64)                     -- id
-  ks  <- packed id <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
-  vs  <- packed id <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
+  ks  <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
+  vs  <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
   oi  <- optional (A.word8 0x22 *> infoP i st)                          -- info
   lat <- unzig <$> (A.word8 0x40 *> varint @Word64)                     -- lat
   lon <- unzig <$> (A.word8 0x48 *> varint @Word64)                     -- lon
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ (\gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) oi ts)
 
--- TODO: Handle the delta encoding!
+-- | Parse a @DenseNodes@ in a similar way to `node`.
 dense :: V.Vector B.ByteString -> A.Parser [Int64 -> Int64 -> Int64 -> Node]
 dense st = do
   A.word8 0x12 *> varint @Int
-  ids <- packed unzig <$> (A.word8 0x0a *> varint >>= A.take)
+  ids <- undelta . map unzig . packed <$> (A.word8 0x0a *> varint >>= A.take)
   optional (A.word8 0x2a *> varint >>= A.take)  -- TODO: Don't drop these bytes!
-  lts <- packed unzig <$> (A.word8 0x42 *> varint >>= A.take)
-  lns <- packed unzig <$> (A.word8 0x4a *> varint >>= A.take)
-  kvs <- (packed id <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []
+  lts <- undelta . map unzig . packed <$> (A.word8 0x42 *> varint >>= A.take)
+  lns <- undelta . map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take)
+  kvs <- (packed <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []
   pure $ zipWith4 f ids lts lns (denseTags st kvs)
   where f i lat lon ts = \gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) Nothing ts
 
@@ -102,8 +102,8 @@ denseTags :: V.Vector B.ByteString -> [Int] -> [M.Map B.ByteString B.ByteString]
 denseTags st = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) . breakOn0
 
 -- | Reparse a `B.ByteString` as a list of some Varints.
-packed :: (Bits a, Num a) => (a -> t) -> B.ByteString -> [t]
-packed f bs = either (const []) id $ A.parseOnly (A.many1 (f <$> varint)) bs
+packed :: (Bits t, Num t) => B.ByteString -> [t]
+packed bs = either (const []) id $ A.parseOnly (A.many1 varint) bs
 {-# INLINABLE packed #-}
 
 way :: V.Vector B.ByteString -> A.Parser Way

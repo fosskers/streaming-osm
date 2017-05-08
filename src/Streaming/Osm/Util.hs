@@ -7,10 +7,12 @@ module Streaming.Osm.Util
   , breakOn0
   , pairs
   , both
+  , undelta
   -- * Helpers for writing the Parser
   , unkey
   ) where
 
+import           Control.Monad.Trans.State
 import           Data.Bits
 import qualified Data.ByteString as BS
 import           Data.Word
@@ -73,6 +75,17 @@ pairs (x:y:zs) = (x,y) : pairs zs
 -- | Apply a function to both elements of a tuple.
 both :: (a -> b) -> (a, a) -> (b, b)
 both f (a,b) = (f a, f b)
+
+-- | Restore a list of numbers that have been Delta Encoded.
+undelta :: Num n => [n] -> [n]
+undelta [] = []
+undelta (x : xs) = evalState (work xs) x
+  where work [] = (:[]) <$> get
+        work (n : ns) = do
+          prev <- get
+          put $ n + prev
+          (prev :) <$> work ns
+{-# INLINABLE undelta #-}
 
 -- | Break up a `BS.ByteString` that was parsed with wire-type 2
 -- (Length-delimited). These follow the pattern @tagByte byteCount bytes@,
