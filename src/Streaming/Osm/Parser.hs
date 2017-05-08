@@ -10,12 +10,13 @@ import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Int
-import           Data.List (zipWith4)
+import           Data.List (zipWith5, zipWith7)
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import           Data.Word
 import           Streaming.Osm.Types
 import           Streaming.Osm.Util
+import           Text.Pretty.Simple (pPrint)
 
 ---
 
@@ -76,12 +77,12 @@ stringTable = V.fromList <$> A.many1 (A.word8 0x0a *> varint >>= A.take)
 node :: V.Vector B.ByteString -> A.Parser (Int64 -> Int64 -> Int64 -> Node)
 node st = do
   A.word8 0x0a *> varint @Int
-  i   <- unzig <$> (A.word8 0x08 *> varint @Word64)                     -- id
+  i   <- unzig <$> (A.word8 0x08 *> varint)                          -- id
   ks  <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs  <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
-  oi  <- optional (A.word8 0x22 *> infoP i st)                          -- info
-  lat <- unzig <$> (A.word8 0x40 *> varint @Word64)                     -- lat
-  lon <- unzig <$> (A.word8 0x48 *> varint @Word64)                     -- lon
+  oi  <- optional (A.word8 0x22 *> info i st)                        -- info
+  lat <- unzig <$> (A.word8 0x40 *> varint)                          -- lat
+  lon <- unzig <$> (A.word8 0x48 *> varint)                          -- lon
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ (\gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) oi ts)
 
@@ -90,12 +91,12 @@ dense :: V.Vector B.ByteString -> A.Parser [Int64 -> Int64 -> Int64 -> Node]
 dense st = do
   A.word8 0x12 *> varint @Int
   ids <- undelta . map unzig . packed <$> (A.word8 0x0a *> varint >>= A.take)
-  optional (A.word8 0x2a *> varint >>= A.take)  -- TODO: Don't drop these bytes!
+  ifs <- (A.word8 0x2a *> varint @Int *> denseInfo ids st) <|> pure (repeat Nothing)
   lts <- undelta . map unzig . packed <$> (A.word8 0x42 *> varint >>= A.take)
   lns <- undelta . map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take)
   kvs <- (packed <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []
-  pure $ zipWith4 f ids lts lns (denseTags st kvs)
-  where f i lat lon ts = \gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) Nothing ts
+  pure $ zipWith5 f ids lts lns ifs (denseTags st kvs)
+  where f i lat lon inf ts = \gran lato lono -> Node (offset lato gran lat) (offset lono gran lon) inf ts
 
 -- | Interpret a list of flattened key-value pairs as Tag metadata `Map`s.
 denseTags :: V.Vector B.ByteString -> [Int] -> [M.Map B.ByteString B.ByteString]
@@ -112,8 +113,9 @@ way st = undefined
 relation :: V.Vector B.ByteString -> A.Parser Relation
 relation st = undefined
 
-infoP :: Int64 -> V.Vector B.ByteString -> A.Parser Info
-infoP i st = Info
+-- TODO: Timestamp offsets.
+info :: Int64 -> V.Vector B.ByteString -> A.Parser Info
+info i st = Info
   <$> pure (fromIntegral i)
   <*> ((A.word8 0x08 *> varint) <|> pure (-1))
   <*> optional (A.word8 0x10 *> varint)
@@ -121,6 +123,16 @@ infoP i st = Info
   <*> optional (A.word8 0x20 *> varint)
   <*> optional (V.unsafeIndex st <$> (A.word8 0x28 *> varint))
   <*> ((>>= booly) <$> optional (A.word8 0x30 *> varint @Word8))
+
+denseInfo :: [Int] -> V.Vector B.ByteString -> A.Parser [Maybe Info]
+denseInfo nis st = do
+  ver <- packed <$> (A.word8 0x0a *> varint >>= A.take)
+  tms <- map Just . undelta . map unzig . packed <$> (A.word8 0x12 *> varint >>= A.take)
+  chs <- map Just . undelta . map unzig . packed <$> (A.word8 0x1a *> varint >>= A.take)
+  uid <- map Just . undelta . map unzig . packed <$> (A.word8 0x22 *> varint >>= A.take)
+  uss <- map (st V.!?) . undelta . map unzig . packed <$> (A.word8 0x2a *> varint >>= A.take)
+  vis <- (map booly . packed <$> (A.word8 0x32 *> varint >>= A.take)) <|> pure (repeat $ Just True)
+  pure . map Just $ zipWith7 Info nis ver tms chs uid uss vis
 
 -- | Parse some Varint, which may be made up of multiple bytes.
 varint :: (Num a, Bits a) => A.Parser a
@@ -130,11 +142,6 @@ varint = foldBytes' <$> A.takeWhile (\b -> testBit b 7) <*> A.anyWord8
 -- | Restore truncated LatLng values to their true `Double` representation.
 offset :: Int64 -> Int64 -> Int64 -> Double
 offset off gran coord = 0.000000001 * fromIntegral (off + (gran * coord))
-
--- | Decode a Z-encoded Word64 into a 64-bit Int.
-unzig :: Word64 -> Int64
-unzig n = fromIntegral unzigged
-  where unzigged = shift n (-1) `xor` negate (n .&. 1)
 
 -- TODO: Is this right?
 booly :: Word8 -> Maybe Bool
@@ -149,7 +156,7 @@ test = do
   case A.parseOnly ((,,,) <$> header <*> blob <*> header <*> blob) bytes of
     Left err -> putStrLn err
     Right (_, _, _, Blob (Left bs)) -> print $ A.parseOnly block bs
-    Right (_, _, _, Blob (Right (_, bs))) -> print . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
+    Right (_, _, _, Blob (Right (_, bs))) -> pPrint . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
 --    Right (_, _, _, Blob (Right (_, bs))) -> BL.writeFile "SHRINE-BYTES" . decompress $ BL.fromStrict bs
 
 --    where f (Blob { bytes = Left bs }) = A.parseOnly block bs

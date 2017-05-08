@@ -7,7 +7,7 @@ module Streaming.Osm.Util
   , breakOn0
   , pairs
   , both
-  , undelta
+  , unzig, undelta
   -- * Helpers for writing the Parser
   , unkey
   ) where
@@ -75,6 +75,12 @@ pairs (x:y:zs) = (x,y) : pairs zs
 -- | Apply a function to both elements of a tuple.
 both :: (a -> b) -> (a, a) -> (b, b)
 both f (a,b) = (f a, f b)
+
+-- | Decode a Z-encoded Word64 into a 64-bit Int.
+unzig :: Num a => Word64 -> a
+unzig n = fromIntegral unzigged
+  where unzigged = shift n (-1) `xor` negate (n .&. 1)
+{-# INLINABLE unzig #-}
 
 -- | Restore a list of numbers that have been Delta Encoded.
 undelta :: Num n => [n] -> [n]

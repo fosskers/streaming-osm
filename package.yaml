@@ -29,6 +29,7 @@ library:
     - text
     - transformers
     - zlib >=0.6 && <0.7
+    - pretty-simple  # temporary
 
 tests:
   streaming-osm-test:
