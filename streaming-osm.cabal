@@ -16,6 +16,12 @@ cabal-version:       >= 1.10
 
 extra-source-files:
     ChangeLog.md
+    test/ajishima.osm.pbf
+    test/diomede.osm.pbf
+    test/nozakijima.osm.pbf
+    test/shrine.osm.pbf
+    test/tashirojima.osm.pbf
+    test/uku.osm.pbf
 
 library
   exposed-modules:

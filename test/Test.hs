@@ -70,9 +70,10 @@ suite = testGroup "Unit Tests"
     ]
   , testGroup "Parsing Whole Files"
     [ testCase "shrine" shrineT
-    , testCase "tiny" tinyT
-    , testCase "island" islandT
     , testCase "diomede" diomedeT
+    , testCase "tashirojima" tashirojimaT
+    , testCase "ajishima" ajishimaT
+    , testCase "nozakijima" nozakijimaT
     ]
   ]
 
@@ -180,16 +181,22 @@ wayT = case A.parseOnly stringTable st >>= \t -> A.parseOnly (way t) wey of
   Right _ -> pure ()
 
 shrineT :: Assertion
-shrineT = fileT "shrine.osm.pbf" >>= blockT (5,1,0)
-
-tinyT :: Assertion
-tinyT = fileT "tiny.osm.pbf" >>= blockT (6, 1, 0)
-
-islandT :: Assertion
-islandT = fileT "island.osm.pbf" >>= blockT (36, 5, 0)
+shrineT = fileT "test/shrine.osm.pbf" >>= blockT (5, 1, 0)
 
 diomedeT :: Assertion
-diomedeT = fileT "diomede.osm.pbf" >>= blockT (510, 74, 1)
+diomedeT = fileT "test/diomede.osm.pbf" >>= blockT (510, 74, 1)
+
+tashirojimaT :: Assertion
+tashirojimaT = fileT "test/tashirojima.osm.pbf" >>= blockT (4040, 384, 2)
+
+nozakijimaT :: Assertion
+nozakijimaT = fileT "test/nozakijima.osm.pbf" >>= blockT (3371, 151, 8)
+
+ajishimaT :: Assertion
+ajishimaT = fileT "test/ajishima.osm.pbf" >>= blockT (5118, 325, 1)
+
+--ukuT :: Assertion
+--ukuT = fileT "uku.osm.pbf" >>= blockT (8000, 0, 0)
 
 blockT :: (Int, Int, Int) -> Either String Block -> Assertion
 blockT _ (Left err) = assertFailure err
@@ -198,6 +205,7 @@ blockT (n, w, r) (Right b) = do
   length (ways b) @?= w
   length (relations b) @?= r
 
+-- | Parse the first data `Blob` from a given file.
 fileT :: FilePath -> IO (Either String Block)
 fileT f = do
   bytes <- BS.readFile f

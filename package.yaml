@@ -9,6 +9,7 @@ license: BSD3
 
 extra-source-files:
   - ChangeLog.md
+  - test/*.osm.pbf
 
 ghc-options:
   - -fwarn-unused-imports
