@@ -76,7 +76,7 @@ pairs (x:y:zs) = (x,y) : pairs zs
 both :: (a -> b) -> (a, a) -> (b, b)
 both f (a,b) = (f a, f b)
 
--- | Decode a Z-encoded Word64 into a 64-bit Int.
+-- | Decode a Z-encoded Word64 into some other number type.
 unzig :: Num a => Word64 -> a
 unzig n = fromIntegral unzigged
   where unzigged = shift n (-1) `xor` negate (n .&. 1)

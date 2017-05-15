@@ -57,7 +57,7 @@ block = do
   st <- A.word8 0x0a *> varint @Int *> stringTable
   ns <- (A.word8 0x12 *> varint @Int *> A.many1 (node st)) <|> pure []
   dn <- (A.word8 0x12 *> varint @Int *> dense st) <|> pure []
-  ws <- (A.word8 0x12 *> varint @Int >>= A.take >> pure []) <|> pure [] -- *> A.many' (way st)
+  ws <- (A.word8 0x12 *> varint @Int *> A.many1 (way st)) <|> pure []
   rs <- (A.word8 0x12 *> varint @Int >>= A.take >> pure []) <|> pure [] -- *> A.many' (relation st)
   gran <- (A.word8 0x88 *> A.word8 0x01 *> varint @Int64) <|> pure 100   -- granularity
   date <- (A.word8 0x90 *> A.word8 0x01 *> varint @Int32) <|> pure 1000  -- date_granularity
@@ -80,7 +80,7 @@ node st = do
   i   <- unzig <$> (A.word8 0x08 *> varint)                          -- id
   ks  <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs  <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
-  oi  <- optional (A.word8 0x22 *> info i st)                        -- info
+  oi  <- optional (A.word8 0x22 *> varint @Int *> info i st)         -- info
   lat <- unzig <$> (A.word8 0x40 *> varint)                          -- lat
   lon <- unzig <$> (A.word8 0x48 *> varint)                          -- lon
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
@@ -107,8 +107,17 @@ packed :: (Bits t, Num t) => B.ByteString -> [t]
 packed bs = either (const []) id $ A.parseOnly (A.many1 varint) bs
 {-# INLINABLE packed #-}
 
+-- | Parse a `Way`.
 way :: V.Vector B.ByteString -> A.Parser Way
-way st = undefined
+way st = do
+  A.word8 0x1a *> varint @Int
+  i <- A.word8 0x08 *> varint                                       -- id
+  ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
+  vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
+  oi <- optional (A.word8 0x22 *> varint @Int *> info i st)         -- info
+  ns <- undelta . map unzig . packed <$> (A.word8 0x42 *> varint >>= A.take)
+  let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
+  pure $ Way ns oi ts
 
 relation :: V.Vector B.ByteString -> A.Parser Relation
 relation st = undefined
@@ -124,6 +133,7 @@ info i st = Info
   <*> optional (V.unsafeIndex st <$> (A.word8 0x28 *> varint))
   <*> ((>>= booly) <$> optional (A.word8 0x30 *> varint @Word8))
 
+-- | Parse a @DenseInfo@ message.
 denseInfo :: [Int] -> V.Vector B.ByteString -> A.Parser [Maybe Info]
 denseInfo nis st = do
   ver <- packed <$> (A.word8 0x0a *> varint >>= A.take)

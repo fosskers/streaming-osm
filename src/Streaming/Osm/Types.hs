@@ -37,7 +37,7 @@ instance Element Node where
 -}
 data Way = Way { _nodeRefs :: [Int]
                , _winfo    :: Maybe Info
-               , _wtags    :: M.Map Text Text
+               , _wtags    :: M.Map B.ByteString B.ByteString
                } deriving (Eq, Show)
 
 {-}
