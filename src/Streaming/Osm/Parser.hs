@@ -58,7 +58,7 @@ block = do
   ns <- (A.word8 0x12 *> varint @Int *> A.many1 (node st)) <|> pure []
   dn <- (A.word8 0x12 *> varint @Int *> dense st) <|> pure []
   ws <- (A.word8 0x12 *> varint @Int *> A.many1 (way st)) <|> pure []
-  rs <- (A.word8 0x12 *> varint @Int >>= A.take >> pure []) <|> pure [] -- *> A.many' (relation st)
+  rs <- (A.word8 0x12 *> varint @Int *> A.many1 (relation st)) <|> pure []
   gran <- (A.word8 0x88 *> A.word8 0x01 *> varint @Int64) <|> pure 100   -- granularity
   date <- (A.word8 0x90 *> A.word8 0x01 *> varint @Int32) <|> pure 1000  -- date_granularity
   lato <- (A.word8 0x98 *> A.word8 0x01 *> varint @Int64) <|> pure 0     -- lat_offset
@@ -119,8 +119,20 @@ way st = do
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ Way ns oi ts
 
+-- | Parse a `Relation`.
 relation :: V.Vector B.ByteString -> A.Parser Relation
-relation st = undefined
+relation st = do
+  A.word8 0x22 *> varint @Int
+  i <- A.word8 0x08 *> varint
+  ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []                -- keys
+  vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []                -- vals
+  oi <- optional (A.word8 0x22 *> varint @Int *> info i st)                       -- info
+  rs <- packed <$> (A.word8 0x42 *> varint >>= A.take) <|> pure []                -- roles_sid
+  ms <- map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take) <|> pure []    -- memids
+  ts <- map memtype . packed <$> (A.word8 0x52 *> varint >>= A.take) <|> pure []  -- types
+  let tags = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
+      mems = zipWith3 Member ms ts $ map (V.unsafeIndex st) rs
+  pure $ Relation mems oi tags
 
 -- TODO: Timestamp offsets.
 info :: Int64 -> V.Vector B.ByteString -> A.Parser Info
@@ -162,11 +174,11 @@ booly _ = Nothing
 --test :: IO (Either String [B.ByteString])
 test :: IO ()
 test = do
-  bytes <- B.readFile "shrine.osm.pbf"
+  bytes <- B.readFile "diomede.osm.pbf"
   case A.parseOnly ((,,,) <$> header <*> blob <*> header <*> blob) bytes of
     Left err -> putStrLn err
-    Right (_, _, _, Blob (Left bs)) -> print $ A.parseOnly block bs
-    Right (_, _, _, Blob (Right (_, bs))) -> pPrint . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
+    Right (_, _, _, Blob (Left bs)) -> pPrint $ A.parseOnly block bs
+    Right (_, _, _, Blob (Right (_, bs))) -> pPrint . fmap relations . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
 --    Right (_, _, _, Blob (Right (_, bs))) -> BL.writeFile "SHRINE-BYTES" . decompress $ BL.fromStrict bs
 
 --    where f (Blob { bytes = Left bs }) = A.parseOnly block bs

@@ -5,6 +5,8 @@ module Streaming.Osm.Types
   , Way(..)
   , Relation(..)
   , Info(..)
+  , Member(..)
+  , MemType(..), memtype
   -- * Helper Types
   , BlobHeader(..)
   , Blob(..)
@@ -14,7 +16,6 @@ module Streaming.Osm.Types
 import qualified Data.ByteString as B
 import           Data.Int
 import qualified Data.Map as M
-import           Data.Text (Text)
 
 ---
 
@@ -46,8 +47,8 @@ instance Element Way where
   tags = _wtags
 -}
 data Relation = Relation { _members :: [Member]
-                         , _rinfo   :: Info
-                         , _rtags   :: M.Map Text Text
+                         , _rinfo   :: Maybe Info
+                         , _rtags   :: M.Map B.ByteString B.ByteString
                          } deriving (Eq, Show)
 
 {-}
@@ -55,7 +56,14 @@ instance Element Relation where
   info = _rinfo
   tags = _rtags
 -}
-data Member = Member { _mref :: Int, _mrole :: Text } deriving (Eq, Show)
+data Member = Member { _mref :: Int, _mtype :: MemType, _mrole :: B.ByteString } deriving (Eq, Show)
+
+data MemType = N | W | R deriving (Eq, Show)
+
+memtype :: Int -> MemType
+memtype 0 = N
+memtype 1 = W
+memtype 2 = R
 
 -- | Non-geographic `Element` metadata. The OSM database is a wild place, so
 -- many of these fields may be missing for older Elements.
