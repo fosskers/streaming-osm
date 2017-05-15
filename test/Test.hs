@@ -2,12 +2,15 @@
 
 module Main where
 
+import           Codec.Compression.Zlib (decompress)
 import           Data.Attoparsec.ByteString as A
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
 import           Data.Int
 import qualified Data.Vector as V
 import           Data.Word
 import           Streaming.Osm.Parser
+import           Streaming.Osm.Types
 import           Streaming.Osm.Util
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -56,7 +59,7 @@ suite = testGroup "Unit Tests"
 --      [ testCase "03 8E 02 9E A7 05" groupBytesT
 --      ]
     ]
-  , testGroup "Parser"
+  , testGroup "Parser functions"
     [ testCase "StringTable" stringTableT
     , testCase "DenseNodes" denseNodesT
     , testCase "DenseInfo" denseInfoT
@@ -64,6 +67,12 @@ suite = testGroup "Unit Tests"
     , testCase "varint" $ varintT lts
     , testCase "varint" $ varintT lns
     , testCase "way" wayT
+    ]
+  , testGroup "Parsing Whole Files"
+    [ testCase "shrine" shrineT
+    , testCase "tiny" tinyT
+    , testCase "island" islandT
+    , testCase "diomede" diomedeT
     ]
   ]
 
@@ -169,3 +178,30 @@ wayT :: Assertion
 wayT = case A.parseOnly stringTable st >>= \t -> A.parseOnly (way t) wey of
   Left err -> assertFailure err
   Right _ -> pure ()
+
+shrineT :: Assertion
+shrineT = fileT "shrine.osm.pbf" >>= blockT (5,1,0)
+
+tinyT :: Assertion
+tinyT = fileT "tiny.osm.pbf" >>= blockT (6, 1, 0)
+
+islandT :: Assertion
+islandT = fileT "island.osm.pbf" >>= blockT (36, 5, 0)
+
+diomedeT :: Assertion
+diomedeT = fileT "diomede.osm.pbf" >>= blockT (510, 74, 1)
+
+blockT :: (Int, Int, Int) -> Either String Block -> Assertion
+blockT _ (Left err) = assertFailure err
+blockT (n, w, r) (Right b) = do
+  length (nodes b) @?= n
+  length (ways b) @?= w
+  length (relations b) @?= r
+
+fileT :: FilePath -> IO (Either String Block)
+fileT f = do
+  bytes <- BS.readFile f
+  case A.parseOnly (header *> blob *> header *> blob) bytes of
+    Left err -> pure $ Left err
+    Right (Blob (Left bs)) -> pure $ A.parseOnly block bs
+    Right (Blob (Right (_, bs))) -> pure $ A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs

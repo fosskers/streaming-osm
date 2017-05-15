@@ -19,6 +19,7 @@ dependencies:
   - attoparsec >=0.13 && <0.14
   - bytestring
   - vector >= 0.11 && < 0.13
+  - zlib >=0.6 && <0.7
 
 library:
   source-dirs: src
@@ -28,7 +29,6 @@ library:
     - streaming-bytestring >=0.1 && <0.2
     - text
     - transformers
-    - zlib >=0.6 && <0.7
     - pretty-simple  # temporary
 
 tests:
