@@ -18,10 +18,12 @@ extra-source-files:
     ChangeLog.md
     test/ajishima.osm.pbf
     test/diomede.osm.pbf
+    test/north-van.osm.pbf
     test/nozakijima.osm.pbf
     test/shrine.osm.pbf
     test/tashirojima.osm.pbf
     test/uku.osm.pbf
+    test/vancouver.osm.pbf
 
 library
   exposed-modules:
@@ -33,11 +35,12 @@ library
       base >=4.9 && <4.10
     , attoparsec >=0.13 && <0.14
     , bytestring
+    , streaming >=0.1 && <0.2
     , vector >= 0.11 && < 0.13
     , zlib >=0.6 && <0.7
     , containers
-    , streaming >=0.1 && <0.2
     , streaming-bytestring >=0.1 && <0.2
+    , streaming-utils >= 0.1 && < 0.2
     , text
     , transformers
     , pretty-simple
@@ -52,6 +55,7 @@ test-suite streaming-osm-test
       base >=4.9 && <4.10
     , attoparsec >=0.13 && <0.14
     , bytestring
+    , streaming >=0.1 && <0.2
     , vector >= 0.11 && < 0.13
     , zlib >=0.6 && <0.7
     , streaming-osm

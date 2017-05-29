@@ -9,9 +9,12 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Int
 import qualified Data.Vector as V
 import           Data.Word
+import           Streaming
+import           Streaming.Osm
 import           Streaming.Osm.Parser
 import           Streaming.Osm.Types
 import           Streaming.Osm.Util
+import qualified Streaming.Prelude as S
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
@@ -74,6 +77,15 @@ suite = testGroup "Unit Tests"
     , testCase "tashirojima" tashirojimaT
     , testCase "ajishima" ajishimaT
     , testCase "nozakijima" nozakijimaT
+    ]
+  , testGroup "Streaming"
+    [ testCase "shrine" $ fileS "test/shrine.osm.pbf" (5, 1, 0)
+    , testCase "tashirojima" $ fileS "test/tashirojima.osm.pbf" (4040, 384, 2)
+    , testCase "nozakijima" $ fileS "test/nozakijima.osm.pbf" (3371, 151, 8)
+    , testCase "ajishima" $ fileS "test/ajishima.osm.pbf" (5118, 325, 1)
+    , testCase "uku" $ fileS "test/uku.osm.pbf" (17390, 1228, 6)
+    , testCase "North Van" $ fileS "test/north-van.osm.pbf" (48596, 7757, 52)
+    , testCase "Vancouver" $ fileS "test/vancouver.osm.pbf" (804749, 156053, 1689)
     ]
   ]
 
@@ -183,6 +195,15 @@ wayT = case A.parseOnly stringTable st >>= \t -> A.parseOnly (way t) wey of
 shrineT :: Assertion
 shrineT = fileT "test/shrine.osm.pbf" >>= blockT (5, 1, 0)
 
+fileS :: FilePath -> (Int, Int, Int) -> Assertion
+fileS fp expected = do
+  let bs = blocks $ blobs fp
+  nwrs <- runResourceT $ (,,)
+          <$> S.length_ (nodes bs)
+          <*> S.length_ (ways bs)
+          <*> S.length_ (relations bs)
+  nwrs @?= expected
+
 diomedeT :: Assertion
 diomedeT = fileT "test/diomede.osm.pbf" >>= blockT (510, 74, 1)
 
@@ -201,15 +222,15 @@ ajishimaT = fileT "test/ajishima.osm.pbf" >>= blockT (5118, 325, 1)
 blockT :: (Int, Int, Int) -> Either String Block -> Assertion
 blockT _ (Left err) = assertFailure err
 blockT (n, w, r) (Right b) = do
-  length (nodes b) @?= n
-  length (ways b) @?= w
-  length (relations b) @?= r
+  length (_nodes b) @?= n
+  length (_ways b) @?= w
+  length (_relations b) @?= r
 
 -- | Parse the first data `Blob` from a given file.
 fileT :: FilePath -> IO (Either String Block)
 fileT f = do
-  bytes <- BS.readFile f
-  case A.parseOnly (header *> blob *> header *> blob) bytes of
+  bites <- BS.readFile f
+  case A.parseOnly (header *> blob *> header *> blob) bites of
     Left err -> pure $ Left err
     Right (Blob (Left bs)) -> pure $ A.parseOnly block bs
     Right (Blob (Right (_, bs))) -> pure $ A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs

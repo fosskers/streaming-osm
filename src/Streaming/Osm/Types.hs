@@ -83,6 +83,6 @@ data BlobHeader = BlobHeader { blobType  :: B.ByteString
 newtype Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Eq, Show)
 
 -- | A group of ~8000 OSM Elements.
-data Block = Block { nodes :: [Node]
-                   , ways  :: [Way]
-                   , relations :: [Relation] } deriving (Eq, Show)
+data Block = Block { _nodes :: [Node]
+                   , _ways  :: [Way]
+                   , _relations :: [Relation] } deriving (Eq, Show)
