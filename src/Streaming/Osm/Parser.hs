@@ -10,7 +10,7 @@ import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Int
-import           Data.List (zipWith5, zipWith7)
+import           Data.List (zipWith4, zipWith7)
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import           Data.Word
@@ -97,8 +97,8 @@ dense st = do
   lts <- undelta . map unzig . packed <$> (A.word8 0x42 *> varint >>= A.take)
   lns <- undelta . map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take)
   kvs <- (packed <$> (A.word8 0x52 *> varint >>= A.take)) <|> pure []
-  pure $ zipWith5 f ids lts lns ifs (denseTags st kvs)
-  where f i lat lon inf ts = \gran dgran lato lono -> Node (offset lato gran lat) (offset lono gran lon) (inf dgran) ts
+  pure $ zipWith4 f lts lns ifs (denseTags st kvs)
+  where f lat lon inf ts = \gran dgran lato lono -> Node (offset lato gran lat) (offset lono gran lon) (inf dgran) ts
 
 -- | Interpret a list of flattened key-value pairs as Tag metadata `Map`s.
 denseTags :: V.Vector B.ByteString -> [Int] -> [M.Map B.ByteString B.ByteString]
@@ -181,8 +181,8 @@ booly _ = Nothing
 --test :: IO (Either String [B.ByteString])
 test :: IO ()
 test = do
-  bytes <- B.readFile "test/shrine.osm.pbf"
-  case A.parseOnly ((,,,) <$> header <*> blob <*> header <*> blob) bytes of
+  bites <- B.readFile "test/shrine.osm.pbf"
+  case A.parseOnly ((,,,) <$> header <*> blob <*> header <*> blob) bites of
     Left err -> putStrLn err
     Right (_, _, _, Blob (Left bs)) -> pPrint $ A.parseOnly block bs
     Right (_, _, _, Blob (Right (_, bs))) -> pPrint . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
