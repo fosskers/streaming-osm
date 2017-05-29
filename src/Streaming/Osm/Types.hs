@@ -69,7 +69,7 @@ memtype 2 = R
 -- many of these fields may be missing for older Elements.
 data Info = Info { _id        :: Int
                  , _version   :: Int
-                 , _timestamp :: Maybe Int
+                 , _timestamp :: Maybe Int64
                  , _changeset :: Maybe Int
                  , _uid       :: Maybe Int
                  , _username  :: Maybe B.ByteString
