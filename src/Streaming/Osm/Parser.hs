@@ -46,7 +46,7 @@ headerBlock = do
   optional (A.word8 0x8a *> A.word8 0x01 *> varint >>= A.take)  -- source
   optional (A.word8 0x80 *> A.word8 0x02 *> varint @Int64)      -- osmosis_replication_timestamp
   optional (A.word8 0x88 *> A.word8 0x02 *> varint @Int64)      -- osmosis_replication_sequence_number
-  optional (A.word8 0x92 *> A.word8 0x02 *> varint >>= A.take)  -- osmosis_replication_bas_url
+  optional (A.word8 0x92 *> A.word8 0x02 *> varint >>= A.take)  -- osmosis_replication_base_url
   pure res
 
 -- TODO: many or many' ?
@@ -54,7 +54,7 @@ headerBlock = do
 -- | Called a @PrimitiveBlock@ in the OSM literature.
 block :: A.Parser Block
 block = do
-  st <- A.word8 0x0a *> varint @Int *> stringTable
+  st <- A.word8 0x0a  *> varint @Int *> stringTable
   ns <- (A.word8 0x12 *> varint @Int *> A.many1 (node st)) <|> pure []
   dn <- (A.word8 0x12 *> varint @Int *> dense st) <|> pure []
   ws <- (A.word8 0x12 *> varint @Int *> A.many1 (way st)) <|> pure []
@@ -102,7 +102,8 @@ dense st = do
 
 -- | Interpret a list of flattened key-value pairs as Tag metadata `Map`s.
 denseTags :: V.Vector B.ByteString -> [Int] -> [M.Map B.ByteString B.ByteString]
-denseTags st = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) . breakOn0
+denseTags _ [] = repeat M.empty
+denseTags st kvs = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) $ breakOn0 kvs
 
 -- | Reparse a `B.ByteString` as a list of some Varints.
 packed :: (Bits t, Num t) => B.ByteString -> [t]

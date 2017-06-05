@@ -37,6 +37,8 @@ blocks = S.concat . S.map f
         f (Blob (Right (_, bs))) = A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
 
 -- TODO: Feels wasteful to be converting between BS types!
+-- Can we grab ByteString, convert to Streaming Bytestring, decompress, and
+-- then streaming parse?
 
 -- | All OSM `Node`s.
 nodes :: Stream (Of Block) RIO () -> Stream (Of Node) RIO ()
