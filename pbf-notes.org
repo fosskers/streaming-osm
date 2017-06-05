@@ -480,3 +480,29 @@ Off the top of my head, it seems like you can ignore the "following bytes"
 number given, and just parse what you expect to be there via the parser of
 the Message that happens to be embedded. Will we ever overrun and gobble too
 many bytes this way?
+** Benchmarking
+
+Alright! The parser has been tested on files as big as Vancouver (6.2mb) and
+it can parse out all the Elements successfully. Some notes before we start
+benchmarking / optimizing in earnest:
+
+- Performance has been observed to be linear with file size. This means that
+  I can bench small files and accurately guess run times for larger files.
+- Ways and relations ~count~ faster than nodes. This means laziness /
+  streaming are doing good things and ignoring ~Node~ data when it isn't
+  needed.
+- Initially, Uku ~Node~ data parses and counts in 71ms. My first goal is to
+  improve this by an order of magnitude. The ~osm4scala~ library can count
+  all of Ireland's Elements in 8.9 seconds.
+
+/File sizes:/
+
+- Uku: 128kb
+- Vancouver: 6.2mb
+- Ireland: 133.4mb
+- Planet: 35gb
+
+| Optimizations | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
+|---------------+------------+-----------+----------------+----------------+-------------+---------------|
+| None          |       70.8 |       4.4 |            4.3 |        3511.68 |    75.55776 |      338.3296 |
+#+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
