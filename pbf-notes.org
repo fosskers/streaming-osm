@@ -480,7 +480,9 @@ Off the top of my head, it seems like you can ignore the "following bytes"
 number given, and just parse what you expect to be there via the parser of
 the Message that happens to be embedded. Will we ever overrun and gobble too
 many bytes this way?
-** Benchmarking
+** Optimization
+
+*** Preamble
 
 Alright! The parser has been tested on files as big as Vancouver (6.2mb) and
 it can parse out all the Elements successfully. Some notes before we start
@@ -495,6 +497,8 @@ benchmarking / optimizing in earnest:
   improve this by an order of magnitude. The ~osm4scala~ library can count
   all of Ireland's Elements in 8.9 seconds.
 
+*** Results
+
 /File sizes:/
 
 - Uku: 128kb
@@ -502,7 +506,22 @@ benchmarking / optimizing in earnest:
 - Ireland: 133.4mb
 - Planet: 35gb
 
-| Optimizations | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
-|---------------+------------+-----------+----------------+----------------+-------------+---------------|
-| None          |       70.8 |       4.4 |            4.3 |        3511.68 |    75.55776 |      338.3296 |
+| Optimizations   | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
+|-----------------+------------+-----------+----------------+----------------+-------------+---------------|
+| None            |       70.8 |       4.4 |            4.3 |        3511.68 |    75.55776 |      338.3296 |
+| +Lazy Attoparsec+ |       69.8 |      4.66 |           4.28 |        3462.08 |    74.49056 |     333.55093 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
+
+*** Lazy Attoparsec
+
+~BL.fromStrict~ is /O(1)/, but ~BL.toStrict~ is /O(n)/ and heavily warned
+against in the ~bytestring~ documentation. Attoparsec can run parsers across
+lazy bytestrings as well, which lets us avoid the reverse conversion.
+
+#+BEGIN_SRC haskell
+  -- | Every `Block` of ~8000 Elements.
+  blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
+  blocks = S.concat . S.map f
+    where f (Blob (Left bs)) = A.parseOnly block bs
+          f (Blob (Right (_, bs))) = AL.eitherResult . AL.parse block . decompress $ BL.fromStrict bs
+#+END_SRC
