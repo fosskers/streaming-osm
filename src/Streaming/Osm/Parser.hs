@@ -10,7 +10,7 @@ import           Data.Bits
 import qualified Data.ByteString as B
 import           Data.Int
 import           Data.List (zipWith4, zipWith7)
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 import           Data.Word
 import           Streaming.Osm.Types

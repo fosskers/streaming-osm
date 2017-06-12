@@ -514,7 +514,8 @@ benchmarking / optimizing in earnest:
 | -O2                  |      59.63 |       4.2 |            3.9 |       2957.648 |   63.637136 |     284.95189 |
 | Ignore ~HeaderBlock~   |       58.3 |      4.08 |           3.75 |        2891.68 |    62.21776 |     278.59627 |
 | Use ~INLINE~           |       57.5 |      3.79 |           3.59 |          2852. |      61.364 |     274.77333 |
-| Strict ~many1~         |      46.82 |      3.79 |           3.55 |       2322.272 |   49.966304 |     223.73717 |
+| Strict ~many1~         |      46.61 |      3.75 |           3.54 |       2311.856 |   49.742192 |     222.73365 |
+| Strict ~Map~           |      46.35 |      3.77 |           3.56 |        2298.96 |    49.46472 |      221.4912 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
 *** Lazy Attoparsec
@@ -573,3 +574,17 @@ The strict variant of ~many1~ (adds an apostrophe) forces its return value
 to WHNF, which appears to have a very significant impact. I use it in a
 number of places so this change bought a good speed up. Is there anywhere
 else I'm being "too lazy"?
+
+*** Strict ~Map~
+
+From the ~Data.Map~ module documentation:
+
+#+BEGIN_QUOTE
+Note: You should use ~Data.Map.Strict~ instead of this module if:
+
+- You will eventually need all the values stored.
+- The stored values don't represent large virtual data structures to be lazily computed.
+#+END_QUOTE
+
+The improvement is slight, as ~Map~ is only used in retrieving tags from
+~DenseNodes~.
