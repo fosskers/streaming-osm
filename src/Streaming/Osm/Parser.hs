@@ -3,13 +3,11 @@
 
 module Streaming.Osm.Parser where
 
-import           Codec.Compression.Zlib (decompress)
 import           Control.Applicative ((<|>), optional)
 import           Control.Monad (void)
 import qualified Data.Attoparsec.ByteString as A
 import           Data.Bits
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
 import           Data.Int
 import           Data.List (zipWith4, zipWith7)
 import qualified Data.Map as M
@@ -17,7 +15,6 @@ import qualified Data.Vector as V
 import           Data.Word
 import           Streaming.Osm.Types
 import           Streaming.Osm.Util
-import           Text.Pretty.Simple (pPrint)
 import qualified Data.Attoparsec.Internal.Types as T
 
 ---
@@ -41,16 +38,14 @@ blob = Blob <$> A.eitherP dcmp comp
   where dcmp = A.word8 0x0a *> varint >>= A.take
         comp = (,) <$> (A.word8 0x10 *> varint) <*> (A.word8 0x1a *> varint >>= A.take)
 
--- TODO: many or many' ?
-
 -- | Called a @PrimitiveBlock@ in the OSM literature.
 block :: A.Parser Block
 block = do
   st <- A.word8 0x0a  *> varint @Int *> stringTable
-  ns <- (A.word8 0x12 *> varint @Int *> A.many1 (node st)) <|> pure []
+  ns <- (A.word8 0x12 *> varint @Int *> A.many1' (node st)) <|> pure []
   dn <- (A.word8 0x12 *> varint @Int *> dense st) <|> pure []
-  ws <- (A.word8 0x12 *> varint @Int *> A.many1 (way st)) <|> pure []
-  rs <- (A.word8 0x12 *> varint @Int *> A.many1 (relation st)) <|> pure []
+  ws <- (A.word8 0x12 *> varint @Int *> A.many1' (way st)) <|> pure []
+  rs <- (A.word8 0x12 *> varint @Int *> A.many1' (relation st)) <|> pure []
   gran <- (A.word8 0x88 *> A.word8 0x01 *> varint @Int64) <|> pure 100   -- granularity
   date <- (A.word8 0x90 *> A.word8 0x01 *> varint @Int32) <|> pure 1000  -- date_granularity
   lato <- (A.word8 0x98 *> A.word8 0x01 *> varint @Int64) <|> pure 0     -- lat_offset
@@ -63,7 +58,7 @@ block = do
 -- non-geographic metadata (username, etc.) which contain Strings. The result
 -- must be a `V.Vector`, since we need random access to its contents.
 stringTable :: A.Parser (V.Vector B.ByteString)
-stringTable = V.fromList <$> A.many1 (A.word8 0x0a *> varint >>= A.take)
+stringTable = V.fromList <$> A.many1' (A.word8 0x0a *> varint >>= A.take)
 
 -- | Parse a `Node`. Uses `V.unsafeIndex` to quickly retrieve its tag
 -- Strings, assuming that the Node's key/value pairs will always index a legal
@@ -99,7 +94,7 @@ denseTags st kvs = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) $ br
 
 -- | Reparse a `B.ByteString` as a list of some Varints.
 packed :: (Bits t, Num t) => B.ByteString -> [t]
-packed bs = either (const []) id $ A.parseOnly (A.many1 varint) bs
+packed bs = either (const []) id $ A.parseOnly (A.many1' varint) bs
 {-# INLINE packed #-}
 
 -- | Parse a `Way`.
@@ -173,6 +168,7 @@ booly 1 = Just True
 booly _ = Nothing
 
 --test :: IO (Either String [B.ByteString])
+{-}
 test :: IO ()
 test = do
   bites <- B.readFile "test/shrine.osm.pbf"
@@ -180,6 +176,7 @@ test = do
     Left err -> putStrLn err
     Right (_, _, _, Blob (Left bs)) -> pPrint $ A.parseOnly block bs
     Right (_, _, _, Blob (Right (_, bs))) -> pPrint . A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
+-}
 --    Right (_, _, _, Blob (Right (_, bs))) -> BL.writeFile "SHRINE-BYTES" . decompress $ BL.fromStrict bs
 
 --    where f (Blob { bytes = Left bs }) = A.parseOnly block bs
