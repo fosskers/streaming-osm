@@ -94,7 +94,7 @@ denseTags st kvs = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) $ br
 
 -- | Reparse a `B.ByteString` as a list of some Varints.
 packed :: (Bits t, Num t) => B.ByteString -> [t]
-packed bs = either (const []) id $ A.parseOnly (A.many1' varint) bs
+packed bs = {-# SCC packed #-} either (const []) id $ A.parseOnly (A.many1' varint) bs
 {-# INLINE packed #-}
 
 -- | Parse a `Way`.
@@ -149,12 +149,12 @@ denseInfo nis st = do
 
 -- | Parse some Varint, which may be made up of multiple bytes.
 varint :: (Num a, Bits a) => A.Parser a
-varint = foldBytes' <$> A.takeWhile (\b -> testBit b 7) <*> A.anyWord8
+varint = {-# SCC varint #-} foldBytes' <$> A.takeWhile (\b -> testBit b 7) <*> A.anyWord8
 {-# INLINE varint #-}
 
 -- | Restore truncated LatLng values to their true `Double` representation.
 offset :: Int64 -> Int64 -> Int64 -> Double
-offset off gran coord = 0.000000001 * fromIntegral (off + (gran * coord))
+offset off gran coord = {-# SCC offset #-} 0.000000001 * fromIntegral (off + (gran * coord))
 {-# INLINE offset #-}
 
 -- | Restore truncated timestamps to the number of millis since the 1970 epoch.

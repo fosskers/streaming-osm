@@ -482,6 +482,8 @@ the Message that happens to be embedded. Will we ever overrun and gobble too
 many bytes this way?
 ** Optimization
 
+https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html
+
 *** Preamble
 
 Alright! The parser has been tested on files as big as Vancouver (6.2mb) and

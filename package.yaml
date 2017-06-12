@@ -56,3 +56,10 @@ benchmarks:
     dependencies:
       - criterion >= 1.1 && < 1.3
       - streaming-osm
+
+executables:
+  profiling:
+    source-dirs: profile
+    main: Profile.hs
+    dependencies:
+      - streaming-osm

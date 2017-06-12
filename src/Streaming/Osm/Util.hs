@@ -56,7 +56,7 @@ foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) ze
 -- | Like the above, but takes a `Word8` as the initial accumulator. This is
 -- useful when parsing Varints with `Data.Attoparsec.ByteString.takeWhile`.
 foldBytes' :: (Num a, Bits a) => BS.ByteString -> Word8 -> a
-foldBytes' bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
+foldBytes' bs b = {-# SCC foldBytes' #-} BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
 {-# INLINE foldBytes' #-}
 
 -- | `words` for `Int`, where 0 is the whitespace. Implementation adapted
@@ -78,14 +78,14 @@ both f (a,b) = (f a, f b)
 
 -- | Decode a Z-encoded Word64 into some other number type.
 unzig :: Num a => Word64 -> a
-unzig n = fromIntegral unzigged
+unzig n = {-# SCC unzig #-} fromIntegral unzigged
   where unzigged = shift n (-1) `xor` negate (n .&. 1)
 {-# INLINE unzig #-}
 
 -- | Restore a list of numbers that have been Delta Encoded.
 undelta :: Num n => [n] -> [n]
 undelta [] = []
-undelta (x : xs) = evalState (work xs) x
+undelta (x : xs) = {-# SCC undelta #-} evalState (work xs) x
   where work [] = (:[]) <$> get
         work (n : ns) = do
           prev <- get
