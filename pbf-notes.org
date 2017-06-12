@@ -518,6 +518,7 @@ benchmarking / optimizing in earnest:
 | Use ~INLINE~           |       57.5 |      3.79 |           3.59 |          2852. |      61.364 |     274.77333 |
 | Strict ~many1~         |      46.61 |      3.75 |           3.54 |       2311.856 |   49.742192 |     222.73365 |
 | Strict ~Map~           |      46.35 |      3.77 |           3.56 |        2298.96 |    49.46472 |      221.4912 |
+| +Strict State+         |      52.46 |      3.79 |           3.67 |       2602.016 |   55.985312 |     250.68885 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
 *** Lazy Attoparsec
@@ -590,3 +591,7 @@ Note: You should use ~Data.Map.Strict~ instead of this module if:
 
 The improvement is slight, as ~Map~ is only used in retrieving tags from
 ~DenseNodes~.
+*** Strict ~State~
+
+I'm quite surprised that this slowed things down. I should rework ~undelta~
+to use a fold, I think. Or wait... why aren't I mapping?

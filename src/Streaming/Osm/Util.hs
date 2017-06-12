@@ -12,7 +12,7 @@ module Streaming.Osm.Util
   , unkey
   ) where
 
-import           Control.Monad.Trans.State
+import           Control.Monad.Trans.State.Lazy
 import           Data.Bits
 import qualified Data.ByteString as BS
 import           Data.Word
@@ -85,12 +85,11 @@ unzig n = {-# SCC unzig #-} fromIntegral unzigged
 -- | Restore a list of numbers that have been Delta Encoded.
 undelta :: Num n => [n] -> [n]
 undelta [] = []
-undelta (x : xs) = {-# SCC undelta #-} evalState (work xs) x
-  where work [] = (:[]) <$> get
-        work (n : ns) = do
+undelta (x : xs) = {-# SCC undelta #-} x : evalState (mapM work xs) x
+  where work n = do
           prev <- get
-          put $ n + prev
-          (prev :) <$> work ns
+          modify (n +)
+          pure prev
 {-# INLINE undelta #-}
 
 -- | Break up a `BS.ByteString` that was parsed with wire-type 2
