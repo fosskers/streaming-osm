@@ -506,10 +506,12 @@ benchmarking / optimizing in earnest:
 - Ireland: 133.4mb
 - Planet: 35gb
 
-| Optimizations   | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
-|-----------------+------------+-----------+----------------+----------------+-------------+---------------|
-| None            |       70.8 |       4.4 |            4.3 |        3511.68 |    75.55776 |      338.3296 |
-| +Lazy Attoparsec+ |       69.8 |      4.66 |           4.28 |        3462.08 |    74.49056 |     333.55093 |
+| Optimizations        | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
+|----------------------+------------+-----------+----------------+----------------+-------------+---------------|
+| None                 |      68.43 |      4.36 |           4.25 |       3394.128 |   73.028496 |     327.00416 |
+| +Lazy Attoparsec+      |       67.8 |      4.56 |           4.25 |        3362.88 |    72.35616 |      323.9936 |
+| +Streaming Decompress+ |      70.12 |       4.5 |           4.41 |       3477.952 |   74.832064 |     335.08011 |
+| -O2                  |      59.63 |       4.2 |            3.9 |       2957.648 |   63.637136 |     284.95189 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
 *** Lazy Attoparsec
@@ -519,9 +521,21 @@ against in the ~bytestring~ documentation. Attoparsec can run parsers across
 lazy bytestrings as well, which lets us avoid the reverse conversion.
 
 #+BEGIN_SRC haskell
-  -- | Every `Block` of ~8000 Elements.
   blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
   blocks = S.concat . S.map f
     where f (Blob (Left bs)) = A.parseOnly block bs
           f (Blob (Right (_, bs))) = AL.eitherResult . AL.parse block . decompress $ BL.fromStrict bs
+#+END_SRC
+*** Streaming Decompress
+
+This avoids conversion between ~ByteString~ types completely, but still
+manages to be slower. I think streaming decompress just isn't necessary
+here, considering how small we know each of the file blocks to be. If the
+/entire/ file was compressed, then yes, this would be the correct approach.
+
+#+BEGIN_SRC haskell
+  blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
+  blocks = flip S.for f
+    where f (Blob (Left bs)) = either (const $ pure ()) S.yield $ A.parseOnly block bs
+          f (Blob (Right (_, bs))) = void . A.parsed block . Z.decompress Z.defaultWindowBits $ Q.fromStrict bs
 #+END_SRC
