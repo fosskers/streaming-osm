@@ -73,7 +73,7 @@ benchmark streaming-osm-bench
   main-is: Bench.hs
   hs-source-dirs:
       bench
-  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2 -threaded -O2
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2 -threaded
   build-depends:
       base >=4.9 && <4.10
     , attoparsec >=0.13 && <0.14

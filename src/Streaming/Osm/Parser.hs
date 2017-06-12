@@ -5,6 +5,7 @@ module Streaming.Osm.Parser where
 
 import           Codec.Compression.Zlib (decompress)
 import           Control.Applicative ((<|>), optional)
+import           Control.Monad (void)
 import qualified Data.Attoparsec.ByteString as A
 import           Data.Bits
 import qualified Data.ByteString as B
@@ -17,37 +18,28 @@ import           Data.Word
 import           Streaming.Osm.Types
 import           Streaming.Osm.Util
 import           Text.Pretty.Simple (pPrint)
+import qualified Data.Attoparsec.Internal.Types as T
 
 ---
 
 -- | Parse a `BlobHeader`.
-header :: A.Parser BlobHeader
+header :: A.Parser ()
 header = do
   A.take 4
   A.word8 0x0a
   A.anyWord8
-  t <- A.string "OSMHeader" <|> A.string "OSMData"
-  i <- optional (A.word8 0x12 *> varint >>= A.take)
-  d <- A.word8 0x18 *> varint
-  pure $ BlobHeader t i d
+  A.string "OSMHeader" <|> A.string "OSMData"
+  optional (A.word8 0x12 *> varint >>= advance)
+  void (A.word8 0x18 *> varint @Int)
+
+advance :: Int -> A.Parser ()
+advance n = T.Parser $ \t pos more _lose suc -> suc t (pos + T.Pos n) more ()
+{-# INLINE advance #-}
 
 blob :: A.Parser Blob
 blob = Blob <$> A.eitherP dcmp comp
   where dcmp = A.word8 0x0a *> varint >>= A.take
         comp = (,) <$> (A.word8 0x10 *> varint) <*> (A.word8 0x1a *> varint >>= A.take)
-
--- This is likely not needed.
-headerBlock :: A.Parser [B.ByteString]
-headerBlock = do
-  optional (A.word8 0x0a *> varint >>= A.take)
-  res <- A.many' (A.word8 0x22 *> varint >>= A.take)
-  A.many'  (A.word8 0x2a *> varint >>= A.take)                  -- optional_features
-  optional (A.word8 0x82 *> A.word8 0x01 *> varint >>= A.take)  -- writingprogram
-  optional (A.word8 0x8a *> A.word8 0x01 *> varint >>= A.take)  -- source
-  optional (A.word8 0x80 *> A.word8 0x02 *> varint @Int64)      -- osmosis_replication_timestamp
-  optional (A.word8 0x88 *> A.word8 0x02 *> varint @Int64)      -- osmosis_replication_sequence_number
-  optional (A.word8 0x92 *> A.word8 0x02 *> varint >>= A.take)  -- osmosis_replication_base_url
-  pure res
 
 -- TODO: many or many' ?
 
@@ -108,7 +100,7 @@ denseTags st kvs = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) $ br
 -- | Reparse a `B.ByteString` as a list of some Varints.
 packed :: (Bits t, Num t) => B.ByteString -> [t]
 packed bs = either (const []) id $ A.parseOnly (A.many1 varint) bs
-{-# INLINABLE packed #-}
+{-# INLINE packed #-}
 
 -- | Parse a `Way`.
 way :: V.Vector B.ByteString -> A.Parser (Int32 -> Way)
@@ -163,11 +155,12 @@ denseInfo nis st = do
 -- | Parse some Varint, which may be made up of multiple bytes.
 varint :: (Num a, Bits a) => A.Parser a
 varint = foldBytes' <$> A.takeWhile (\b -> testBit b 7) <*> A.anyWord8
-{-# INLINABLE varint #-}
+{-# INLINE varint #-}
 
 -- | Restore truncated LatLng values to their true `Double` representation.
 offset :: Int64 -> Int64 -> Int64 -> Double
 offset off gran coord = 0.000000001 * fromIntegral (off + (gran * coord))
+{-# INLINE offset #-}
 
 -- | Restore truncated timestamps to the number of millis since the 1970 epoch.
 toffset :: Int32 -> Int64 -> Int64

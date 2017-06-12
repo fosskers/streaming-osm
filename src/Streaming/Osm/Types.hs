@@ -8,7 +8,6 @@ module Streaming.Osm.Types
   , Member(..)
   , MemType(..), memtype
   -- * Helper Types
-  , BlobHeader(..)
   , Blob(..)
   , Block(..)
   ) where
@@ -75,10 +74,6 @@ data Info = Info { _id        :: Int
                  , _username  :: Maybe B.ByteString
                  , _visible   :: Maybe Bool
                  } deriving (Eq, Show)
-
-data BlobHeader = BlobHeader { blobType  :: B.ByteString
-                             , indexData :: Maybe B.ByteString
-                             , datasize  :: Int32 } deriving (Show)
 
 newtype Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Eq, Show)
 

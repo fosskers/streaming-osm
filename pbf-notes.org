@@ -512,6 +512,8 @@ benchmarking / optimizing in earnest:
 | +Lazy Attoparsec+      |       67.8 |      4.56 |           4.25 |        3362.88 |    72.35616 |      323.9936 |
 | +Streaming Decompress+ |      70.12 |       4.5 |           4.41 |       3477.952 |   74.832064 |     335.08011 |
 | -O2                  |      59.63 |       4.2 |            3.9 |       2957.648 |   63.637136 |     284.95189 |
+| Ignore ~HeaderBlock~   |       58.3 |      4.08 |           3.75 |        2891.68 |    62.21776 |     278.59627 |
+| Use ~INLINE~           |       57.5 |      3.79 |           3.59 |          2852. |      61.364 |     274.77333 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
 *** Lazy Attoparsec
@@ -539,3 +541,27 @@ here, considering how small we know each of the file blocks to be. If the
     where f (Blob (Left bs)) = either (const $ pure ()) S.yield $ A.parseOnly block bs
           f (Blob (Right (_, bs))) = void . A.parsed block . Z.decompress Z.defaultWindowBits $ Q.fromStrict bs
 #+END_SRC
+
+*** Ignore ~HeaderBlock~
+
+It's not referenced anyway, so why try to parse it?
+
+#+BEGIN_SRC haskell
+  header :: A.Parser ()
+  header = do
+    A.take 4
+    A.word8 0x0a
+    A.anyWord8
+    A.string "OSMHeader" <|> A.string "OSMData"
+    optional (A.word8 0x12 *> varint >>= advance)
+    void (A.word8 0x18 *> varint @Int)
+
+  advance :: Int -> A.Parser ()
+  advance n = T.Parser $ \t pos more _lose suc -> suc t (pos + T.Pos n) more ()
+  {-# INLINE advance #-}
+#+END_SRC
+
+*** Use ~Inline~
+
+~INLINE~ is a bit more aggressive than ~INLINABLE~, and we gain a little
+speed up if we insist this to the compiler.

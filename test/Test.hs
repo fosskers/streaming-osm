@@ -85,7 +85,7 @@ suite = testGroup "Unit Tests"
     , testCase "ajishima" $ fileS "test/ajishima.osm.pbf" (5118, 325, 1)
     , testCase "uku" $ fileS "test/uku.osm.pbf" (17390, 1228, 6)
     , testCase "North Van" $ fileS "test/north-van.osm.pbf" (48596, 7757, 52)
-    , testCase "Vancouver" $ fileS "test/vancouver.osm.pbf" (804749, 156053, 1689)
+--    , testCase "Vancouver" $ fileS "test/vancouver.osm.pbf" (804749, 156053, 1689)
     ]
   ]
 
