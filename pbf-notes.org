@@ -519,6 +519,9 @@ benchmarking / optimizing in earnest:
 | Strict ~many1~         |      46.61 |      3.75 |           3.54 |       2311.856 |   49.742192 |     222.73365 |
 | Strict ~Map~           |      46.35 |      3.77 |           3.56 |        2298.96 |    49.46472 |      221.4912 |
 | +Strict State+         |      52.46 |      3.79 |           3.67 |       2602.016 |   55.985312 |     250.68885 |
+| +StrictData Ext.+      |      68.55 |     28.66 |           27.8 |        3400.08 |    73.15656 |      327.5776 |
+| Use ~scanl~            |      31.79 |      3.82 |           3.63 |       1576.784 |   33.926288 |     151.91381 |
+| *TARGET*               |        6.5 |           |                |          322.4 |      6.9368 |     31.061333 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
 *** Lazy Attoparsec
@@ -593,5 +596,26 @@ The improvement is slight, as ~Map~ is only used in retrieving tags from
 ~DenseNodes~.
 *** Strict ~State~
 
-I'm quite surprised that this slowed things down. I should rework ~undelta~
-to use a fold, I think. Or wait... why aren't I mapping?
+It /looks/ like this is slowing the benchmarks down, but properly profiled,
+this actually reduces overall CPU time and memory usage by ~undelta~ by
+quite a bit. Overall the change to Strict State should be better in the real
+world.
+
+*** ~StrictData~ Extension
+
+Sometimes it can be handy to add this extension to a ~Types.hs~ file:
+
+#+BEGIN_SRC haskell
+  {-# LANGUAGE StrictData #-}
+#+END_SRC
+
+This was not one of those cases.
+
+*** Use ~scanl~
+
+The strict ~scanl~ (with an apostrophe) to be precise. This made ~undelta~
+/way/ faster, which seemed to be a decent bottleneck. This is also confuses
+the profiling results: they said that undelta only took 1.4% of the total
+CPU time, yet speeding it up gave a 30% /overall/ speedup to the benchmarks.
+I guess I should be skeptical of both sources of info, and optimize where it
+makes sense?
