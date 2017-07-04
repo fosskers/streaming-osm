@@ -13,7 +13,6 @@ module Streaming.Osm.Types
   ) where
 
 import qualified Data.ByteString as B
-import           Data.Int
 import qualified Data.Map as M
 
 ---
@@ -68,14 +67,14 @@ memtype 2 = R
 -- many of these fields may be missing for older Elements.
 data Info = Info { _id        :: Int
                  , _version   :: Int
-                 , _timestamp :: Maybe Int64
+                 , _timestamp :: Maybe Int
                  , _changeset :: Maybe Int
                  , _uid       :: Maybe Int
                  , _username  :: Maybe B.ByteString
                  , _visible   :: Maybe Bool
                  } deriving (Eq, Show)
 
-newtype Blob = Blob { bytes :: Either B.ByteString (Int32, B.ByteString) } deriving (Eq, Show)
+newtype Blob = Blob { bytes :: Either B.ByteString (Int, B.ByteString) } deriving (Eq, Show)
 
 -- | A group of ~8000 OSM Elements.
 data Block = Block { _nodes :: [Node]

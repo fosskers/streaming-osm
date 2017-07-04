@@ -6,7 +6,6 @@ import           Codec.Compression.Zlib (decompress)
 import           Data.Attoparsec.ByteString as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import           Data.Int
 import qualified Data.Vector as V
 import           Data.Word
 import           Streaming
@@ -27,11 +26,11 @@ suite :: TestTree
 suite = testGroup "Unit Tests"
   [ testGroup "Util"
     [ testGroup "foldBytes"
-      [ testCase "3" $ foldBytes @Int (BS.pack [0x03]) @?= 3
-      , testCase "124" $ foldBytes @Int32 (BS.pack [0x7c]) @?= 124
-      , testCase "150" $ foldBytes @Int (BS.pack [0x96, 0x01]) @?= 150
-      , testCase "270" $ foldBytes @Int (BS.pack [0x8e, 0x02]) @?= 270
-      , testCase "86942" $ foldBytes @Int (BS.pack [0x9e, 0xa7, 0x05]) @?= 86942
+      [ testCase "3" $ foldBytes (BS.pack [0x03]) 0 @?= 3
+      , testCase "124" $ foldBytes (BS.pack [0x7c]) 0 @?= 124
+      , testCase "150" $ foldBytes (BS.pack [0x96, 0x01]) 0 @?= 150
+      , testCase "270" $ foldBytes (BS.pack [0x8e, 0x02]) 0 @?= 270
+      , testCase "86942" $ foldBytes (BS.pack [0x9e, 0xa7, 0x05]) 0 @?= 86942
       ]
     , testGroup "key"
       [ testCase "08" $ key @Word8 0x08 @?= (1, 0)

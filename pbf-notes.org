@@ -521,6 +521,7 @@ benchmarking / optimizing in earnest:
 | +Strict State+         |      52.46 |      3.79 |           3.67 |       2602.016 |   55.985312 |     250.68885 |
 | +StrictData Ext.+      |      68.55 |     28.66 |           27.8 |        3400.08 |    73.15656 |      327.5776 |
 | Use ~scanl~            |      31.79 |      3.82 |           3.63 |       1576.784 |   33.926288 |     151.91381 |
+| ~Int~ everywhere       |       25.8 |      3.55 |           3.52 |        1279.68 |    27.53376 |      123.2896 |
 | *TARGET*               |        6.5 |           |                |          322.4 |      6.9368 |     31.061333 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
@@ -619,3 +620,9 @@ the profiling results: they said that undelta only took 1.4% of the total
 CPU time, yet speeding it up gave a 30% /overall/ speedup to the benchmarks.
 I guess I should be skeptical of both sources of info, and optimize where it
 makes sense?
+*** ~Int~ everywhere
+
+It turned out to be possible to specialize almost everything to ~Int~,
+avoiding generic functions. This, plus allowing only a single ~INLINE~ of
+~varint~ accounted for the most speedup. Further inlines didn't seem to
+help, or made speed worse.
