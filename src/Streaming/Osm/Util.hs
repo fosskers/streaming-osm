@@ -3,7 +3,7 @@
 module Streaming.Osm.Util
   ( key
   , key2
-  , foldBytes, foldBytes'
+  , foldBytes
   , breakOn0
   , pairs
   , both
@@ -12,9 +12,9 @@ module Streaming.Osm.Util
   , unkey
   ) where
 
-import           Control.Monad.Trans.State
 import           Data.Bits
 import qualified Data.ByteString as BS
+import           Data.List (scanl')
 import           Data.Word
 
 ---
@@ -39,7 +39,7 @@ unkey f w = case (to8 $ shiftR smash 7, to8 $ smash .&. 0b01111111) of
 -- be faster.
 key :: (Num t, Bits t) => t -> (t, t)
 key w = (shiftR w 3, w .&. 0b00000111)
-{-# INLINABLE key #-}
+{-# INLINE key #-}
 
 -- | For the case when two bytes denote the field number and /Wire Type/. We
 -- know that for OSM data, the highest field number is 34. Encoding 34 with any
@@ -47,53 +47,8 @@ key w = (shiftR w 3, w .&. 0b00000111)
 key2 :: Word8 -> Word8 -> (Word16, Word16)
 key2 w1 w0 = key $ shift (to16 w0) 7 .|. to16 (clearBit w1 7)
 
--- | Fold a `BS.ByteString` into some number type, according to the special
--- rules outlined in `groupBytes`.
-foldBytes :: (Num a, Bits a) => BS.ByteString -> a
-foldBytes = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) zeroBits
-{-# INLINABLE foldBytes #-}
-
--- | Like the above, but takes a `Word8` as the initial accumulator. This is
--- useful when parsing Varints with `Data.Attoparsec.ByteString.takeWhile`.
-foldBytes' :: (Num a, Bits a) => BS.ByteString -> Word8 -> a
-foldBytes' bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
-{-# INLINABLE foldBytes' #-}
-
--- | `words` for `Int`, where 0 is the whitespace. Implementation adapted
--- from `words`.
-breakOn0 :: [Int] -> [[Int]]
-breakOn0 [] = []
-breakOn0 ns = xs : breakOn0 ys
-  where (xs, (0 : ys)) = span (/= 0) ns
-
--- | A sort of "self-zip", forming pairs from every two elements in a list.
--- Assumes that the list is of even length.
-pairs :: [a] -> [(a,a)]
-pairs [] = []
-pairs (x:y:zs) = (x,y) : pairs zs
-
--- | Apply a function to both elements of a tuple.
-both :: (a -> b) -> (a, a) -> (b, b)
-both f (a,b) = (f a, f b)
-
--- | Decode a Z-encoded Word64 into some other number type.
-unzig :: Num a => Word64 -> a
-unzig n = fromIntegral unzigged
-  where unzigged = shift n (-1) `xor` negate (n .&. 1)
-{-# INLINABLE unzig #-}
-
--- | Restore a list of numbers that have been Delta Encoded.
-undelta :: Num n => [n] -> [n]
-undelta [] = []
-undelta (x : xs) = evalState (work xs) x
-  where work [] = (:[]) <$> get
-        work (n : ns) = do
-          prev <- get
-          put $ n + prev
-          (prev :) <$> work ns
-{-# INLINABLE undelta #-}
-
--- | Break up a `BS.ByteString` that was parsed with wire-type 2
+-- `BS.foldr'` is tail-recursive, unlike List's foldr, so it should be just as fast as foldl.
+-- | Fold a `BS.ByteString` into an `Int` which was parsed with wire-type 2
 -- (Length-delimited). These follow the pattern @tagByte byteCount bytes@,
 -- where we've parsed @byteCount@ and done an attoparsec @take@ on the @bytes@.
 -- These bytes could be a packed repeated field of varints, meaning they could
@@ -107,5 +62,31 @@ undelta (x : xs) = evalState (work xs) x
 --   1. If the MSB of a byte is 1, then expect at least the next byte to belong to this value.
 --   2. If the MSB of a byte is 0, we're at the end of the current accumulating value (or
 --      at the first byte of a single byte value).
---groupBytes :: BS.ByteString -> [BS.ByteString]
---groupBytes = BS.groupBy (\a _ -> testBit a 7)
+foldBytes :: BS.ByteString -> Word8 -> Int
+foldBytes bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 7) (fromIntegral b) bs
+
+-- | `words` for `Int`, where 0 is the whitespace. Implementation adapted
+-- from `words`.
+breakOn0 :: [Int] -> [[Int]]
+breakOn0 [] = []
+breakOn0 ns = xs : breakOn0 ys
+  where (xs, 0 : ys) = span (/= 0) ns
+
+-- | A sort of "self-zip", forming pairs from every two elements in a list.
+-- Assumes that the list is of even length.
+pairs :: [a] -> [(a,a)]
+pairs [] = []
+pairs (x:y:zs) = (x,y) : pairs zs
+
+-- | Apply a function to both elements of a tuple.
+both :: (a -> b) -> (a, a) -> (b, b)
+both f (a,b) = (f a, f b)
+
+-- | Decode a Z-encoded `Int`.
+unzig :: Int -> Int
+unzig n = shift n (-1) `xor` negate (n .&. 1)
+
+-- | Restore a list of numbers that have been Delta Encoded.
+undelta :: [Int] -> [Int]
+undelta [] = []
+undelta (x : xs) = scanl' (+) x xs

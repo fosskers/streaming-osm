@@ -480,3 +480,149 @@ Off the top of my head, it seems like you can ignore the "following bytes"
 number given, and just parse what you expect to be there via the parser of
 the Message that happens to be embedded. Will we ever overrun and gobble too
 many bytes this way?
+** Optimization
+
+https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html
+
+*** Preamble
+
+Alright! The parser has been tested on files as big as Vancouver (6.2mb) and
+it can parse out all the Elements successfully. Some notes before we start
+benchmarking / optimizing in earnest:
+
+- Performance has been observed to be linear with file size. This means that
+  I can bench small files and accurately guess run times for larger files.
+- Ways and relations ~count~ faster than nodes. This means laziness /
+  streaming are doing good things and ignoring ~Node~ data when it isn't
+  needed.
+- Initially, Uku ~Node~ data parses and counts in 71ms. My first goal is to
+  improve this by an order of magnitude. The ~osm4scala~ library can count
+  all of Ireland's Elements in 8.9 seconds.
+
+*** Results
+
+/File sizes:/
+
+- Uku: 128kb
+- Vancouver: 6.2mb
+- Ireland: 133.4mb
+- Planet: 35gb
+
+| Optimizations        | Nodes (ms) | Ways (ms) | Relations (ms) | Vancouver (ms) | Ireland (s) | Planet (mins) |
+|----------------------+------------+-----------+----------------+----------------+-------------+---------------|
+| None                 |      68.43 |      4.36 |           4.25 |       3394.128 |   73.028496 |     327.00416 |
+| +Lazy Attoparsec+      |       67.8 |      4.56 |           4.25 |        3362.88 |    72.35616 |      323.9936 |
+| +Streaming Decompress+ |      70.12 |       4.5 |           4.41 |       3477.952 |   74.832064 |     335.08011 |
+| -O2                  |      59.63 |       4.2 |            3.9 |       2957.648 |   63.637136 |     284.95189 |
+| Ignore ~HeaderBlock~   |       58.3 |      4.08 |           3.75 |        2891.68 |    62.21776 |     278.59627 |
+| Use ~INLINE~           |       57.5 |      3.79 |           3.59 |          2852. |      61.364 |     274.77333 |
+| Strict ~many1~         |      46.61 |      3.75 |           3.54 |       2311.856 |   49.742192 |     222.73365 |
+| Strict ~Map~           |      46.35 |      3.77 |           3.56 |        2298.96 |    49.46472 |      221.4912 |
+| +Strict State+         |      52.46 |      3.79 |           3.67 |       2602.016 |   55.985312 |     250.68885 |
+| +StrictData Ext.+      |      68.55 |     28.66 |           27.8 |        3400.08 |    73.15656 |      327.5776 |
+| Use ~scanl~            |      31.79 |      3.82 |           3.63 |       1576.784 |   33.926288 |     151.91381 |
+| ~Int~ everywhere       |       25.8 |      3.55 |           3.52 |        1279.68 |    27.53376 |      123.2896 |
+| *TARGET*               |        6.5 |           |                |          322.4 |      6.9368 |     31.061333 |
+#+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
+
+*** Lazy Attoparsec
+
+~BL.fromStrict~ is /O(1)/, but ~BL.toStrict~ is /O(n)/ and heavily warned
+against in the ~bytestring~ documentation. Attoparsec can run parsers across
+lazy bytestrings as well, which lets us avoid the reverse conversion.
+
+#+BEGIN_SRC haskell
+  blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
+  blocks = S.concat . S.map f
+    where f (Blob (Left bs)) = A.parseOnly block bs
+          f (Blob (Right (_, bs))) = AL.eitherResult . AL.parse block . decompress $ BL.fromStrict bs
+#+END_SRC
+*** Streaming Decompress
+
+This avoids conversion between ~ByteString~ types completely, but still
+manages to be slower. I think streaming decompress just isn't necessary
+here, considering how small we know each of the file blocks to be. If the
+/entire/ file was compressed, then yes, this would be the correct approach.
+
+#+BEGIN_SRC haskell
+  blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
+  blocks = flip S.for f
+    where f (Blob (Left bs)) = either (const $ pure ()) S.yield $ A.parseOnly block bs
+          f (Blob (Right (_, bs))) = void . A.parsed block . Z.decompress Z.defaultWindowBits $ Q.fromStrict bs
+#+END_SRC
+
+*** Ignore ~HeaderBlock~
+
+It's not referenced anyway, so why try to parse it?
+
+#+BEGIN_SRC haskell
+  header :: A.Parser ()
+  header = do
+    A.take 4
+    A.word8 0x0a
+    A.anyWord8
+    A.string "OSMHeader" <|> A.string "OSMData"
+    optional (A.word8 0x12 *> varint >>= advance)
+    void (A.word8 0x18 *> varint @Int)
+
+  advance :: Int -> A.Parser ()
+  advance n = T.Parser $ \t pos more _lose suc -> suc t (pos + T.Pos n) more ()
+  {-# INLINE advance #-}
+#+END_SRC
+
+*** Use ~Inline~
+
+~INLINE~ is a bit more aggressive than ~INLINABLE~, and we gain a little
+speed up if we insist this to the compiler.
+
+*** Strict ~many1~
+
+The strict variant of ~many1~ (adds an apostrophe) forces its return value
+to WHNF, which appears to have a very significant impact. I use it in a
+number of places so this change bought a good speed up. Is there anywhere
+else I'm being "too lazy"?
+
+*** Strict ~Map~
+
+From the ~Data.Map~ module documentation:
+
+#+BEGIN_QUOTE
+Note: You should use ~Data.Map.Strict~ instead of this module if:
+
+- You will eventually need all the values stored.
+- The stored values don't represent large virtual data structures to be lazily computed.
+#+END_QUOTE
+
+The improvement is slight, as ~Map~ is only used in retrieving tags from
+~DenseNodes~.
+*** Strict ~State~
+
+It /looks/ like this is slowing the benchmarks down, but properly profiled,
+this actually reduces overall CPU time and memory usage by ~undelta~ by
+quite a bit. Overall the change to Strict State should be better in the real
+world.
+
+*** ~StrictData~ Extension
+
+Sometimes it can be handy to add this extension to a ~Types.hs~ file:
+
+#+BEGIN_SRC haskell
+  {-# LANGUAGE StrictData #-}
+#+END_SRC
+
+This was not one of those cases.
+
+*** Use ~scanl~
+
+The strict ~scanl~ (with an apostrophe) to be precise. This made ~undelta~
+/way/ faster, which seemed to be a decent bottleneck. This is also confuses
+the profiling results: they said that undelta only took 1.4% of the total
+CPU time, yet speeding it up gave a 30% /overall/ speedup to the benchmarks.
+I guess I should be skeptical of both sources of info, and optimize where it
+makes sense?
+*** ~Int~ everywhere
+
+It turned out to be possible to specialize almost everything to ~Int~,
+avoiding generic functions. This, plus allowing only a single ~INLINE~ of
+~varint~ accounted for the most speedup. Further inlines didn't seem to
+help, or made speed worse.

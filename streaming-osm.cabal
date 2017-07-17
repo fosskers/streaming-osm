@@ -1,4 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.17.0.
+-- This file has been generated from package.yaml by hpack version 0.17.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -18,6 +18,7 @@ extra-source-files:
     ChangeLog.md
     test/ajishima.osm.pbf
     test/diomede.osm.pbf
+    test/ireland.osm.pbf
     test/north-van.osm.pbf
     test/nozakijima.osm.pbf
     test/shrine.osm.pbf
@@ -47,7 +48,22 @@ library
   hs-source-dirs:
       src
   default-language: Haskell2010
-  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2
+
+executable profiling
+  main-is: Profile.hs
+  hs-source-dirs:
+      profile
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2
+  build-depends:
+      base >=4.9 && <4.10
+    , attoparsec >=0.13 && <0.14
+    , bytestring
+    , streaming >=0.1 && <0.2
+    , vector >= 0.11 && < 0.13
+    , zlib >=0.6 && <0.7
+    , streaming-osm
+  default-language: Haskell2010
 
 test-suite streaming-osm-test
   type: exitcode-stdio-1.0
@@ -65,4 +81,21 @@ test-suite streaming-osm-test
       test
   main-is: Test.hs
   default-language: Haskell2010
-  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -threaded
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2 -threaded
+
+benchmark streaming-osm-bench
+  type: exitcode-stdio-1.0
+  main-is: Bench.hs
+  hs-source-dirs:
+      bench
+  ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2 -threaded
+  build-depends:
+      base >=4.9 && <4.10
+    , attoparsec >=0.13 && <0.14
+    , bytestring
+    , streaming >=0.1 && <0.2
+    , vector >= 0.11 && < 0.13
+    , zlib >=0.6 && <0.7
+    , criterion >= 1.1 && < 1.3
+    , streaming-osm
+  default-language: Haskell2010

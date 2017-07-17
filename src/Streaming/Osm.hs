@@ -4,7 +4,7 @@ import           Codec.Compression.Zlib (decompress)
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString.Streaming as A
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Streaming as B
+import qualified Data.ByteString.Streaming as Q
 import           Streaming
 import           Streaming.Osm.Parser
 import           Streaming.Osm.Types
@@ -28,17 +28,13 @@ type RIO = ResourceT IO
 -- out of it. A `Blob` is a potentially compressed @ByteString@ that further
 -- parse into actual OSM Elements.
 blobs :: FilePath -> Stream (Of Blob) RIO ()
-blobs = void . A.parsed (header *> blob) . B.readFile
+blobs = void . A.parsed (header *> blob) . Q.readFile
 
 -- | Every `Block` of ~8000 Elements.
 blocks :: Stream (Of Blob) RIO () -> Stream (Of Block) RIO ()
 blocks = S.concat . S.map f
   where f (Blob (Left bs)) = A.parseOnly block bs
         f (Blob (Right (_, bs))) = A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
-
--- TODO: Feels wasteful to be converting between BS types!
--- Can we grab ByteString, convert to Streaming Bytestring, decompress, and
--- then streaming parse?
 
 -- | All OSM `Node`s.
 nodes :: Stream (Of Block) RIO () -> Stream (Of Node) RIO ()
