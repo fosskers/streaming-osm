@@ -1,4 +1,37 @@
-module Streaming.Osm where
+-- |
+-- Module    : Streaming.Osm
+-- Copyright : (c) Colin Woodbury, 2017
+-- License   : BSD3
+-- Maintainer: Colin Woodbury <colingw@gmail.com>
+--
+-- This library provides the ability to read and process <http://www.openstreetmap.org/ OpenStreetMap>
+-- data via the <https://hackage.haskell.org/package/streaming streaming> ecosystem. Since /streaming/
+-- allows for very little RAM overhead despite file size, we can process very large OSM PBF files
+-- just by providing a file path:
+--
+-- @
+-- import           Streaming
+-- import           Streaming.Osm
+-- import qualified Streaming.Prelude as S
+--
+-- -- | Count all nodes.
+-- count :: IO ()
+-- count = do
+--   len <- runResourceT .  S.length_ . nodes . blocks $ blobs "yourfile.osm.pbf"
+--   print len
+-- @
+
+module Streaming.Osm
+  (
+    -- * Streams
+    blobs
+  , blocks
+  , nodes
+  , ways
+  , relations
+    -- * Util
+  , RIO
+  ) where
 
 import           Codec.Compression.Zlib (decompress)
 import qualified Data.Attoparsec.ByteString as A

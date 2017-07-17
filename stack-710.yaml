@@ -1,0 +1,13 @@
+resolver: lts-6.35
+
+packages:
+- '.'
+
+extra-deps:
+  - streaming-utils-0.1.4.7
+  - json-stream-0.4.1.3
+  - streaming-commons-0.1.17
+
+flags: {}
+
+extra-package-dbs: []

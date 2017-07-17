@@ -33,7 +33,7 @@ library
       Streaming.Osm.Internal.Util
       Streaming.Osm.Types
   build-depends:
-      base >=4.9 && <4.11
+      base >=4.8 && <4.11
     , attoparsec >=0.13 && <0.14
     , bytestring
     , streaming >=0.1 && <0.2
@@ -52,7 +52,7 @@ library
 test-suite streaming-osm-test
   type: exitcode-stdio-1.0
   build-depends:
-      base >=4.9 && <4.11
+      base >=4.8 && <4.11
     , attoparsec >=0.13 && <0.14
     , bytestring
     , streaming >=0.1 && <0.2
@@ -74,7 +74,7 @@ benchmark streaming-osm-bench
       bench
   ghc-options: -fwarn-unused-imports -fwarn-unused-binds -fwarn-name-shadowing -fwarn-unused-matches -O2 -threaded
   build-depends:
-      base >=4.9 && <4.11
+      base >=4.8 && <4.11
     , attoparsec >=0.13 && <0.14
     , bytestring
     , streaming >=0.1 && <0.2

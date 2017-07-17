@@ -19,7 +19,7 @@ ghc-options:
   - -O2
 
 dependencies:
-  - base >=4.9 && <4.11
+  - base >=4.8 && <4.11
   - attoparsec >=0.13 && <0.14
   - bytestring
   - streaming >=0.1 && <0.2
