@@ -2,7 +2,7 @@
 
 -- |
 -- Module    : Streaming.Osm.Internal.Parser
--- Copyright : (c) Colin Woodbury, 2017
+-- Copyright : (c) Azavea, 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 

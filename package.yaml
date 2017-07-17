@@ -5,6 +5,7 @@ description: A hand-written streaming byte parser for OpenStreetMap Protobuf dat
 category: Streaming
 author: Colin Woodbury
 maintainer: colingw@gmail.com
+copyright: Copyright (c) 2017 Azavea
 license: BSD3
 
 extra-source-files:
