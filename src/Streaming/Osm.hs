@@ -17,7 +17,7 @@
 -- -- | Count all nodes.
 -- count :: IO ()
 -- count = do
---   len <- runResourceT .  S.length_ . nodes . blocks $ blobs "yourfile.osm.pbf"
+--   len <- runResourceT . S.length_ . nodes . blocks $ blobs "yourfile.osm.pbf"
 --   print len
 -- @
 
