@@ -19,13 +19,11 @@ extra-source-files:
     ChangeLog.md
     test/ajishima.osm.pbf
     test/diomede.osm.pbf
-    test/ireland.osm.pbf
     test/north-van.osm.pbf
     test/nozakijima.osm.pbf
     test/shrine.osm.pbf
     test/tashirojima.osm.pbf
     test/uku.osm.pbf
-    test/vancouver.osm.pbf
 
 library
   exposed-modules:
