@@ -1,6 +1,6 @@
 {-# LANGUAGE BinaryLiterals #-}
 
-module Streaming.Osm.Util
+module Streaming.Osm.Internal.Util
   ( key
   , key2
   , foldBytes

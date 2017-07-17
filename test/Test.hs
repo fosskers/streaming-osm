@@ -10,9 +10,9 @@ import qualified Data.Vector as V
 import           Data.Word
 import           Streaming
 import           Streaming.Osm
-import           Streaming.Osm.Parser
+import           Streaming.Osm.Internal.Parser
+import           Streaming.Osm.Internal.Util
 import           Streaming.Osm.Types
-import           Streaming.Osm.Util
 import qualified Streaming.Prelude as S
 import           Test.Tasty
 import           Test.Tasty.HUnit

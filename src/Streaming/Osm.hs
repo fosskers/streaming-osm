@@ -6,7 +6,7 @@ import qualified Data.Attoparsec.ByteString.Streaming as A
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Streaming as Q
 import           Streaming
-import           Streaming.Osm.Parser
+import           Streaming.Osm.Internal.Parser
 import           Streaming.Osm.Types
 import qualified Streaming.Prelude as S
 
