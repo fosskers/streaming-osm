@@ -1,15 +1,17 @@
 {-# LANGUAGE BinaryLiterals #-}
 
-module Streaming.Osm.Util
-  ( key
-  , key2
-  , foldBytes
+-- |
+-- Module    : Streaming.Osm.Internal.Util
+-- Copyright : (c) Azavea, 2017
+-- License   : BSD3
+-- Maintainer: Colin Woodbury <colingw@gmail.com>
+
+module Streaming.Osm.Internal.Util
+  ( foldBytes
   , breakOn0
   , pairs
   , both
   , unzig, undelta
-  -- * Helpers for writing the Parser
-  , unkey
   ) where
 
 import           Data.Bits
@@ -19,17 +21,17 @@ import           Data.Word
 
 ---
 
-to16 :: Word8 -> Word16
-to16 = fromIntegral
+-- to16 :: Word8 -> Word16
+-- to16 = fromIntegral
 
-to8 :: Word16 -> Word8
-to8 = fromIntegral
+-- to8 :: Word16 -> Word8
+-- to8 = fromIntegral
 
-unkey :: Word8 -> Word8 -> Either (Word8, Word8) Word8
-unkey f w = case (to8 $ shiftR smash 7, to8 $ smash .&. 0b01111111) of
-  (0, r) -> Right r
-  (l, r) -> Left (setBit r 7, l)
-  where smash = shift (to16 f) 3 .|. to16 w
+-- unkey :: Word8 -> Word8 -> Either (Word8, Word8) Word8
+-- unkey f w = case (to8 $ shiftR smash 7, to8 $ smash .&. 0b01111111) of
+--   (0, r) -> Right r
+--   (l, r) -> Left (setBit r 7, l)
+--   where smash = shift (to16 f) 3 .|. to16 w
 
 -- | Discover a field's number and /Wire Type/. The wire type is expected to
 -- be a value from 0 to 5. The field number itself can probably be any varint,
@@ -37,15 +39,14 @@ unkey f w = case (to8 $ shiftR smash 7, to8 $ smash .&. 0b01111111) of
 --
 -- The results are left as numbers, since pattern matching on those should
 -- be faster.
-key :: (Num t, Bits t) => t -> (t, t)
-key w = (shiftR w 3, w .&. 0b00000111)
-{-# INLINE key #-}
+-- key :: (Num t, Bits t) => t -> (t, t)
+-- key w = (shiftR w 3, w .&. 0b00000111)
 
 -- | For the case when two bytes denote the field number and /Wire Type/. We
 -- know that for OSM data, the highest field number is 34. Encoding 34 with any
 -- wire type takes 2 bytes, so we know we'll never need to check for more.
-key2 :: Word8 -> Word8 -> (Word16, Word16)
-key2 w1 w0 = key $ shift (to16 w0) 7 .|. to16 (clearBit w1 7)
+-- key2 :: Word8 -> Word8 -> (Word16, Word16)
+-- key2 w1 w0 = key $ shift (to16 w0) 7 .|. to16 (clearBit w1 7)
 
 -- `BS.foldr'` is tail-recursive, unlike List's foldr, so it should be just as fast as foldl.
 -- | Fold a `BS.ByteString` into an `Int` which was parsed with wire-type 2

@@ -1,6 +1,11 @@
+-- |
+-- Module    : Streaming.Osm.Types
+-- Copyright : (c) Azavea, 2017
+-- License   : BSD3
+-- Maintainer: Colin Woodbury <colingw@gmail.com>
+
 module Streaming.Osm.Types
-  ( -- * Elements
---    Element(..)
+  ( -- * OpenStreetMap /Elements/
     Node(..)
   , Way(..)
   , Relation(..)
@@ -17,47 +22,36 @@ import qualified Data.Map as M
 
 ---
 
-{-}
-class Element a where
-  info :: a -> Info
-  tags :: a -> M.Map Text Text
--}
-
+-- | An OpenStreetMap /Node/ element. Represents a single point in 2D space.
 data Node = Node { _lat   :: Double
                  , _lng   :: Double
                  , _ninfo :: Maybe Info
                  , _ntags :: M.Map B.ByteString B.ByteString
                  } deriving (Eq, Show)
 
-{-}
-instance Element Node where
-  info = _ninfo
-  tags = _ntags
--}
+-- | An OpenStreetMap /Way/ element. Made up of `Node`s, and represents
+-- some line on the earth, or a Polygon if its first and last Nodes are the same.
 data Way = Way { _nodeRefs :: [Int]
                , _winfo    :: Maybe Info
                , _wtags    :: M.Map B.ByteString B.ByteString
                } deriving (Eq, Show)
 
-{-}
-instance Element Way where
-  info = _winfo
-  tags = _wtags
--}
+-- | An OpenStreetMap /Relation/ element. These are logical groups of Nodes, Ways,
+-- and other Relations. They can represent large multipolygons, or more abstract
+-- non-polygonal objects like bus route networks.
 data Relation = Relation { _members :: [Member]
                          , _rinfo   :: Maybe Info
                          , _rtags   :: M.Map B.ByteString B.ByteString
                          } deriving (Eq, Show)
 
-{-}
-instance Element Relation where
-  info = _rinfo
-  tags = _rtags
--}
+-- | Equivalent to the /member/ tag, found in OSM `Relation`s.
 data Member = Member { _mref :: Int, _mtype :: MemType, _mrole :: B.ByteString } deriving (Eq, Show)
 
+-- | Is a `Member` entry referencing a Node, a Way, or a Relation?
 data MemType = N | W | R deriving (Eq, Show)
 
+-- | A bridge between the Int-based enum value for `MemType` is protobuf and
+-- a more useful Haskell type.
 memtype :: Int -> MemType
 memtype 0 = N
 memtype 1 = W
@@ -74,6 +68,8 @@ data Info = Info { _id        :: Int
                  , _visible   :: Maybe Bool
                  } deriving (Eq, Show)
 
+-- | Bytes parsed out of an @OSMData@ section. Either non-compressed (Left) or
+-- compressed (Right) with its post-decompression size.
 newtype Blob = Blob { bytes :: Either B.ByteString (Int, B.ByteString) } deriving (Eq, Show)
 
 -- | A group of ~8000 OSM Elements.

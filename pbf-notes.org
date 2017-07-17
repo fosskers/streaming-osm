@@ -525,6 +525,17 @@ benchmarking / optimizing in earnest:
 | *TARGET*               |        6.5 |           |                |          322.4 |      6.9368 |     31.061333 |
 #+TBLFM: $5=$2 * 49.6::$6=($2 * 1067.2) / 1000::$7=($2 * 286720) / 60000
 
+| Concurrency  | Concurrent Tasks | Nodes (s) |
+|--------------+------------------+-----------|
+| None         | N/A              |        24 |
+| Con - 1 core | 4                |      26.1 |
+| Con - 4 core | 4                |      31.7 |
+| Con - 4 core | 8                |      33.5 |
+| Con - 4 core | 16               |      38.4 |
+
+For comparison, it can sequentially count the number of ~Blob~ in 0.001s,
+and parse those to ~Block~ in 0.04s.
+
 *** Lazy Attoparsec
 
 ~BL.fromStrict~ is /O(1)/, but ~BL.toStrict~ is /O(n)/ and heavily warned

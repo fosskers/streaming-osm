@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Streaming.Osm.Parser where
+-- |
+-- Module    : Streaming.Osm.Internal.Parser
+-- Copyright : (c) Azavea, 2017
+-- License   : BSD3
+-- Maintainer: Colin Woodbury <colingw@gmail.com>
+
+module Streaming.Osm.Internal.Parser where
 
 import           Control.Applicative ((<|>), optional)
 import           Control.Monad (void)
@@ -12,7 +18,7 @@ import           Data.List (zipWith4, zipWith7)
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
 import           Streaming.Osm.Types
-import           Streaming.Osm.Util
+import           Streaming.Osm.Internal.Util
 
 ---
 
@@ -26,10 +32,12 @@ header = do
   optional (A.word8 0x12 *> varint >>= advance)
   void (A.word8 0x18 *> varint)
 
+-- | Borrowed from Attoparsec.
 advance :: Int -> A.Parser ()
 advance n = T.Parser $ \t pos more _lose suc -> suc t (pos + T.Pos n) more ()
 {-# INLINE advance #-}
 
+-- | Called a @Blob@ in the OSM literature.
 blob :: A.Parser Blob
 blob = Blob <$> A.eitherP dcmp comp
   where dcmp = A.word8 0x0a *> varint >>= A.take
@@ -61,12 +69,12 @@ stringTable = V.fromList <$> A.many1' (A.word8 0x0a *> varint >>= A.take)
 node :: V.Vector B.ByteString -> A.Parser Node
 node st = do
   A.word8 0x0a *> varint
-  i   <- unzig <$> (A.word8 0x08 *> varint)                             -- id
+  i   <- unzig <$> (A.word8 0x08 *> varint)                          -- id
   ks  <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs  <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
-  oi  <- optional (A.word8 0x22 *> varint *> info i st)                 -- info
-  lat <- unzig <$> (A.word8 0x40 *> varint)                             -- lat
-  lon <- unzig <$> (A.word8 0x48 *> varint)                             -- lon
+  oi  <- optional (A.word8 0x22 *> varint *> info i st)              -- info
+  lat <- unzig <$> (A.word8 0x40 *> varint)                          -- lat
+  lon <- unzig <$> (A.word8 0x48 *> varint)                          -- lon
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ Node (offset lat) (offset lon) oi ts
 
@@ -94,7 +102,7 @@ way st = do
   i <- A.word8 0x08 *> varint                                       -- id
   ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
-  oi <- optional (A.word8 0x22 *> varint *> info i st)         -- info
+  oi <- optional (A.word8 0x22 *> varint *> info i st)              -- info
   ns <- ints <$> (A.word8 0x42 *> varint >>= A.take)
   let ts = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
   pure $ Way ns oi ts
@@ -106,7 +114,7 @@ relation st = do
   i  <- A.word8 0x08 *> varint
   ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []                -- keys
   vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []                -- vals
-  oi <- optional (A.word8 0x22 *> varint *> info i st)                       -- info
+  oi <- optional (A.word8 0x22 *> varint *> info i st)                            -- info
   rs <- packed <$> (A.word8 0x42 *> varint >>= A.take) <|> pure []                -- roles_sid
   ms <- map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take) <|> pure []    -- memids
   ts <- map memtype . packed <$> (A.word8 0x52 *> varint >>= A.take) <|> pure []  -- types
@@ -114,14 +122,15 @@ relation st = do
       mems = zipWith3 Member ms ts $ map (V.unsafeIndex st) rs
   pure $ Relation mems oi tags
 
+-- | Parse an `Info`.
 info :: Int -> V.Vector B.ByteString -> A.Parser Info
 info i st = do
-  vn <- ((A.word8 0x08 *> varint) <|> pure (-1))                    -- version
-  ts <- optional (A.word8 0x10 *> varint)                           -- timestamp
-  cs <- optional (A.word8 0x18 *> varint)                           -- changeset
-  ui <- optional (A.word8 0x20 *> varint)                           -- uid
-  us <- optional (V.unsafeIndex st <$> (A.word8 0x28 *> varint))    -- user_sid
-  vi <- ((>>= booly) <$> optional (A.word8 0x30 *> varint))           -- visible
+  vn <- (A.word8 0x08 *> varint) <|> pure (-1)                    -- version
+  ts <- optional (A.word8 0x10 *> varint)                         -- timestamp
+  cs <- optional (A.word8 0x18 *> varint)                         -- changeset
+  ui <- optional (A.word8 0x20 *> varint)                         -- uid
+  us <- optional (V.unsafeIndex st <$> (A.word8 0x28 *> varint))  -- user_sid
+  vi <- (>>= booly) <$> optional (A.word8 0x30 *> varint)         -- visible
   pure $ Info (fromIntegral i) vn (toffset <$> ts) cs ui us vi
 
 -- | Parse a @DenseInfo@ message.
@@ -157,7 +166,7 @@ offset coord = 0.000000001 * fromIntegral (100 * coord)
 toffset :: Int -> Int
 toffset time = 1000 * time
 
--- TODO: Is this right?
+-- | Try to parse a `Bool` from a bit.
 booly :: Int -> Maybe Bool
 booly 0 = Just False
 booly 1 = Just True
