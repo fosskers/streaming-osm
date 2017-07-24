@@ -637,3 +637,80 @@ It turned out to be possible to specialize almost everything to ~Int~,
 avoiding generic functions. This, plus allowing only a single ~INLINE~ of
 ~varint~ accounted for the most speedup. Further inlines didn't seem to
 help, or made speed worse.
+* July Wrap-up
+
+** Overview
+
+As of this month, version ~1.0.0~ of ~streaming-osm~ was released. It provides
+a reliable method for parsing ~.osm.pbf~ files in Haskell, and does so in a /streaming/
+fashion so that there is very little RAM overhead regardless of input file size.
+
+For all intents and purposes, the library works and is fast. However, despite
+significant effort in micro-optimization, it is not fast enough.
+
+** Results
+
+My goal was to be able to parse and count the number of ~Node~ elements in
+the full /OSM Planet/ file (~35gb) in half an hour. If just counting took 30 minutes,
+then fully processing the entire file and rewriting into a ~.orc~ file should then take
+around an hour (at least). This was a good target, as Seth Fitzsimmons reported that his
+original ~osm2orc~ program could do the entire task in 4 hours using preexisting Java
+libraries of essentially the same function.
+
+In order to actually measure how my library was performing, I could luckily avoid
+parsing the actual 35gb file and stick to reading smaller files, timing the parse,
+and extrapolating. This is because of the /streaming/ approach (and the way OSM PBF data
+is formatted) - parsing time is /linear/ with file size. The initial, unoptimized code
+was far from fast:
+
+| Nodes (ms) | Ways (ms) | Relations (ms) | Planet (mins) |
+|------------+-----------+----------------+---------------|
+|      68.43 |      4.36 |           4.25 |     327.00416 |
+
+6.5 hours, just to count the Nodes! No thank you. This spurred me into the deepest
+research into performance Haskell that I've yet done, and I learned a lot. Namely:
+
+- That ~-O2~ is our friend
+- The proper use of ~INLINE~ and /phase control/ numbers
+- The value of /fold/ operations that are strict in the accumulator
+- What ~scanl~ is for (hint: fast code)
+- That laziness works
+
+After applying every technique I found, I brought the Node counting time down to:
+
+| Nodes (ms) | Ways (ms) | Relations (ms) | Planet (mins) |
+|------------+-----------+----------------+---------------|
+|       25.8 |      3.55 |           3.52 |      123.2896 |
+
+2 hours. A lot faster, but not enough. It seemed like this was as fast as single-core
+parsing could get. Ah, then why not multicore? OSM divides their Element data into blocks
+of 8000, requiring a two-stage parsing process. Why not grab each block of raw bytes, then
+parse the real meat in parallel? I tried to employ the brand-new
+~streaming-concurrency~ library with the direct help of the author, but after
+some benchmarks it was clear to the both of us that there was almost no time gain to
+be had with his library. Yes the results became concurrent, but the underpinnings didn't
+seem to provide the advertised benefit. This is something that should be revisited in
+future, however, since I think the concurrent approach is sound in general.
+
+** Next Steps
+
+I learned a lot about performance Haskell, as well as how Protobuf works. I hand-wrote
+the byte parser instead of using any existing protobuf libraries because I thought that
+would get me the most speed. I could make assumptions, cheat, leave things out, and
+hopefully pull ahead of existing tools. That didn't happen in the end, but I'm still
+hopeful. Should ~streaming-concurrency~ recieve a performance update, then my
+~streaming-osm~ can benefit for free.
+
+For now, there isn't a point in continuing the other aspects of my multi-part project
+to convert PBF data to ORC via Haskell. If this first piece (~streaming-osm~) can't
+get fast enough, then adding the extra logic of ORC conversion won't help the total time.
+That said, the research should be considered a success since much was gained. I learned
+a lot that can be applied elsewhere, and I released a new, useful library.
+
+While I'm pausing the rest of the project for now, there are some follow-up tasks:
+
+- Benchmark ~streaming-osm~ with the new GHC 8.2.1
+- Benchmark ~streaming-osm~ with an updated ~streaming-concurrency~ (maybe never)
+
+If these can bring the time down to where it needs to be, then the project should
+be continued. Until then, I will pursue other ventures.
