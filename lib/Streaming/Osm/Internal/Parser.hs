@@ -4,11 +4,11 @@
 -- Module    : Streaming.Osm.Internal.Parser
 -- Copyright : (c) Azavea, 2017
 -- License   : BSD3
--- Maintainer: Colin Woodbury <colingw@gmail.com>
+-- Maintainer: Colin Woodbury <colin@fosskers.ca>
 
 module Streaming.Osm.Internal.Parser where
 
-import           Control.Applicative ((<|>), optional)
+import           Control.Applicative (optional, (<|>))
 import           Control.Monad (void)
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.Internal.Types as T
@@ -17,19 +17,19 @@ import qualified Data.ByteString as B
 import           Data.List (zipWith4, zipWith7)
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
-import           Streaming.Osm.Types
 import           Streaming.Osm.Internal.Util
+import           Streaming.Osm.Types
 
 ---
 
 -- | Parse a `BlobHeader`.
 header :: A.Parser ()
 header = do
-  A.take 4
-  A.word8 0x0a
-  A.anyWord8
-  A.string "OSMHeader" <|> A.string "OSMData"
-  optional (A.word8 0x12 *> varint >>= advance)
+  void $ A.take 4
+  void $ A.word8 0x0a
+  void $ A.anyWord8
+  void $ A.string "OSMHeader" <|> A.string "OSMData"
+  void $ optional (A.word8 0x12 *> varint >>= advance)
   void (A.word8 0x18 *> varint)
 
 -- | Borrowed from Attoparsec.
@@ -51,10 +51,10 @@ block = do
   dn <- (A.word8 0x12 *> varint *> dense st) <|> pure []
   ws <- (A.word8 0x12 *> varint *> A.many1' (way st)) <|> pure []
   rs <- (A.word8 0x12 *> varint *> A.many1' (relation st)) <|> pure []
-  optional (A.word8 0x88 *> A.word8 0x01 *> varint)  -- granularity
-  optional (A.word8 0x90 *> A.word8 0x01 *> varint)  -- date_granularity
-  optional (A.word8 0x98 *> A.word8 0x01 *> varint)  -- lat_offset
-  optional (A.word8 0xa0 *> A.word8 0x01 *> varint)  -- lon_offset
+  void $ optional (A.word8 0x88 *> A.word8 0x01 *> varint)  -- granularity
+  void $ optional (A.word8 0x90 *> A.word8 0x01 *> varint)  -- date_granularity
+  void $ optional (A.word8 0x98 *> A.word8 0x01 *> varint)  -- lat_offset
+  void $ optional (A.word8 0xa0 *> A.word8 0x01 *> varint)  -- lon_offset
   pure $ Block (ns ++ dn) ws rs
 
 -- | The String Table will never be empty, since all Elements have
@@ -68,7 +68,7 @@ stringTable = V.fromList <$> A.many1' (A.word8 0x0a *> varint >>= A.take)
 -- value in the given String Table.
 node :: V.Vector B.ByteString -> A.Parser Node
 node st = do
-  A.word8 0x0a *> varint
+  void $ A.word8 0x0a *> varint
   i   <- unzig <$> (A.word8 0x08 *> varint)                          -- id
   ks  <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs  <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
@@ -81,7 +81,7 @@ node st = do
 -- | Parse a @DenseNodes@ in a similar way to `node`.
 dense :: V.Vector B.ByteString -> A.Parser [Node]
 dense st = do
-  A.word8 0x12 *> varint
+  void $ A.word8 0x12 *> varint
   ids <- ints <$> (A.word8 0x0a *> varint >>= A.take)
   ifs <- (A.word8 0x2a *> varint *> denseInfo ids st) <|> pure (repeat Nothing)
   lts <- ints <$> (A.word8 0x42 *> varint >>= A.take)
@@ -98,7 +98,7 @@ denseTags st kvs = map (M.fromList . map (both (V.unsafeIndex st)) . pairs) $ br
 -- | Parse a `Way`.
 way :: V.Vector B.ByteString -> A.Parser Way
 way st = do
-  A.word8 0x1a *> varint
+  void $ A.word8 0x1a *> varint
   i <- A.word8 0x08 *> varint                                       -- id
   ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []  -- keys
   vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []  -- vals
@@ -110,7 +110,7 @@ way st = do
 -- | Parse a `Relation`.
 relation :: V.Vector B.ByteString -> A.Parser Relation
 relation st = do
-  A.word8 0x22 *> varint
+  void $ A.word8 0x22 *> varint
   i  <- A.word8 0x08 *> varint
   ks <- packed <$> (A.word8 0x12 *> varint >>= A.take) <|> pure []                -- keys
   vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []                -- vals

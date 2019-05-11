@@ -1,11 +1,11 @@
 module Main where
 
 import           Codec.Compression.Zlib (decompress)
+import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.Attoparsec.ByteString as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Vector as V
-import           Streaming
 import           Streaming.Osm
 import           Streaming.Osm.Internal.Parser
 import           Streaming.Osm.Internal.Util
@@ -87,7 +87,7 @@ suite = testGroup "Unit Tests"
 
 assertRight :: Either t1 t -> Assertion
 assertRight (Left _) = assertFailure "Crap"
-assertRight _ = pure ()
+assertRight _        = pure ()
 
 -- | Bytes which represent a `StringTable`.
 st :: BS.ByteString
@@ -139,8 +139,13 @@ dinf = BS.pack [
   , 0x2a, 0x06
   , 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 ]
 
+ids :: BS.ByteString
 ids = BS.pack [0x9c, 0xb3, 0xaf, 0xde, 0x0a, 0x04, 0x10, 0x16, 0x02, 0x10]
+
+lts :: BS.ByteString
 lts = BS.pack [0x98, 0x88, 0x8a, 0xbc, 0x02, 0x78, 0xac, 0x02, 0xf8, 0x05, 0x28, 0x90, 0x03]
+
+lns :: BS.ByteString
 lns = BS.pack [0xf4, 0xd4, 0xc6, 0xcf, 0x09, 0xa7, 0x0a, 0xe4, 0x0f, 0xf3, 0x0d, 0xe8, 0x0c, 0x8b, 0x06 ]
 
 -- | Bytes which represent a `Way` from @shrine.osm@.
@@ -164,28 +169,28 @@ wey = BS.pack [
 
 stringTableT :: Assertion
 stringTableT = case A.parseOnly stringTable st of
-  Left _ -> assertFailure "Couldn't parse StringTable"
-  Right t -> assert . not $ V.null t
+  Left _  -> assertFailure "Couldn't parse StringTable"
+  Right t -> assertBool "Damn" . not $ V.null t
 
 denseNodesT :: Assertion
 denseNodesT = case A.parseOnly (dense V.empty) dn of
   Left err -> assertFailure err
-  Right _ -> pure ()
+  Right _  -> pure ()
 
 denseInfoT :: Assertion
 denseInfoT = case A.parseOnly stringTable st >>= \t -> A.parseOnly (denseInfo [1..] t) dinf of
   Left err -> assertFailure err
-  Right _ -> pure ()
+  Right _  -> pure ()
 
 varintT :: BS.ByteString -> Assertion
 varintT bs = case A.parseOnly (A.many1 (unzig <$> varint)) bs of
                Left err -> assertFailure err
-               Right t -> length t @?= 6
+               Right t  -> length t @?= 6
 
 wayT :: Assertion
 wayT = case A.parseOnly stringTable st >>= \t -> A.parseOnly (way t) wey of
   Left err -> assertFailure err
-  Right _ -> pure ()
+  Right _  -> pure ()
 
 shrineT :: Assertion
 shrineT = fileT "test/shrine.osm.pbf" >>= blockT (5, 1, 0)

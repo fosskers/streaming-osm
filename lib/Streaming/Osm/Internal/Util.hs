@@ -4,7 +4,7 @@
 -- Module    : Streaming.Osm.Internal.Util
 -- Copyright : (c) Azavea, 2017
 -- License   : BSD3
--- Maintainer: Colin Woodbury <colingw@gmail.com>
+-- Maintainer: Colin Woodbury <colin@fosskers.ca>
 
 module Streaming.Osm.Internal.Util
   ( foldBytes
@@ -76,8 +76,9 @@ breakOn0 ns = xs : breakOn0 ys
 -- | A sort of "self-zip", forming pairs from every two elements in a list.
 -- Assumes that the list is of even length.
 pairs :: [a] -> [(a,a)]
-pairs [] = []
+pairs []       = []
 pairs (x:y:zs) = (x,y) : pairs zs
+pairs _        = error "List was of uneven length."
 
 -- | Apply a function to both elements of a tuple.
 both :: (a -> b) -> (a, a) -> (b, b)
@@ -89,5 +90,5 @@ unzig n = shift n (-1) `xor` negate (n .&. 1)
 
 -- | Restore a list of numbers that have been Delta Encoded.
 undelta :: [Int] -> [Int]
-undelta [] = []
+undelta []       = []
 undelta (x : xs) = scanl' (+) x xs

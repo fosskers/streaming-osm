@@ -2,7 +2,7 @@
 -- Module    : Streaming.Osm
 -- Copyright : (c) Azavea, 2017
 -- License   : BSD3
--- Maintainer: Colin Woodbury <colingw@gmail.com>
+-- Maintainer: Colin Woodbury <colin@fosskers.ca>
 --
 -- This library provides the ability to read and process <http://www.openstreetmap.org/ OpenStreetMap>
 -- data via the <https://hackage.haskell.org/package/streaming streaming> ecosystem. Since /streaming/
@@ -34,6 +34,7 @@ module Streaming.Osm
   ) where
 
 import           Codec.Compression.Zlib (decompress)
+import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString.Streaming as A
 import qualified Data.ByteString.Lazy as BL

@@ -711,6 +711,9 @@ While I'm pausing the rest of the project for now, there are some follow-up task
 
 - Benchmark ~streaming-osm~ with the new GHC 8.2.1
 - Benchmark ~streaming-osm~ with an updated ~streaming-concurrency~ (maybe never)
+- Benchmark in a docker container, compiling to LLVM
+- Switch from attoparsec to megaparsec-6.0.0
+- Try to use the ~par~ function where appropriate
 
 If these can bring the time down to where it needs to be, then the project should
 be continued. Until then, I will pursue other ventures.

@@ -2,7 +2,7 @@
 -- Module    : Streaming.Osm.Types
 -- Copyright : (c) Azavea, 2017
 -- License   : BSD3
--- Maintainer: Colin Woodbury <colingw@gmail.com>
+-- Maintainer: Colin Woodbury <colin@fosskers.ca>
 
 module Streaming.Osm.Types
   ( -- * OpenStreetMap /Elements/
@@ -56,6 +56,7 @@ memtype :: Int -> MemType
 memtype 0 = N
 memtype 1 = W
 memtype 2 = R
+memtype _ = error "Unknown `MemType`"
 
 -- | Non-geographic `Element` metadata. The OSM database is a wild place, so
 -- many of these fields may be missing for older Elements.
@@ -73,6 +74,6 @@ data Info = Info { _id        :: Int
 newtype Blob = Blob { bytes :: Either B.ByteString (Int, B.ByteString) } deriving (Eq, Show)
 
 -- | A group of ~8000 OSM Elements.
-data Block = Block { _nodes :: [Node]
-                   , _ways  :: [Way]
+data Block = Block { _nodes     :: [Node]
+                   , _ways      :: [Way]
                    , _relations :: [Relation] } deriving (Eq, Show)
