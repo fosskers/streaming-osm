@@ -2,7 +2,7 @@
 
 -- |
 -- Module    : Streaming.Osm.Internal.Parser
--- Copyright : (c) Azavea, 2017
+-- Copyright : (c) Azavea, 2017 - 2020
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colin@fosskers.ca>
 
@@ -27,7 +27,7 @@ header :: A.Parser ()
 header = do
   void $ A.take 4
   void $ A.word8 0x0a
-  void $ A.anyWord8
+  void A.anyWord8
   void $ A.string "OSMHeader" <|> A.string "OSMData"
   void $ optional (A.word8 0x12 *> varint >>= advance)
   void (A.word8 0x18 *> varint)
@@ -131,7 +131,7 @@ info i st = do
   ui <- optional (A.word8 0x20 *> varint)                         -- uid
   us <- optional (V.unsafeIndex st <$> (A.word8 0x28 *> varint))  -- user_sid
   vi <- (>>= booly) <$> optional (A.word8 0x30 *> varint)         -- visible
-  pure $ Info (fromIntegral i) vn (toffset <$> ts) cs ui us vi
+  pure $ Info i vn (toffset <$> ts) cs ui us vi
 
 -- | Parse a @DenseInfo@ message.
 denseInfo :: [Int] -> V.Vector B.ByteString -> A.Parser [Maybe Info]

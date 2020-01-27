@@ -1,6 +1,6 @@
 -- |
 -- Module    : Streaming.Osm.Types
--- Copyright : (c) Azavea, 2017
+-- Copyright : (c) Azavea, 2017 - 2020
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colin@fosskers.ca>
 

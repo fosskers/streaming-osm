@@ -2,7 +2,7 @@
 
 -- |
 -- Module    : Streaming.Osm.Internal.Util
--- Copyright : (c) Azavea, 2017
+-- Copyright : (c) Azavea, 2017 - 2020
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colin@fosskers.ca>
 
@@ -70,8 +70,11 @@ foldBytes bs b = BS.foldr' (\w acc -> shift acc 7 .|. clearBit (fromIntegral w) 
 -- from `words`.
 breakOn0 :: [Int] -> [[Int]]
 breakOn0 [] = []
-breakOn0 ns = xs : breakOn0 ys
-  where (xs, 0 : ys) = span (/= 0) ns
+breakOn0 ns = case ys of
+    []     -> [xs]
+    _ : zs -> xs : breakOn0 zs
+  where
+    (xs, ys) = span (/= 0) ns
 
 -- | A sort of "self-zip", forming pairs from every two elements in a list.
 -- Assumes that the list is of even length.
