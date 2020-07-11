@@ -13,6 +13,7 @@ author:             Colin Woodbury
 maintainer:         colin@fosskers.ca
 copyright:          Copyright (c) 2017 - 2020 Azavea
 category:           Streaming
+homepage:           https://github.com/fosskers/streaming-osm
 build-type:         Simple
 extra-source-files:
   ChangeLog.md
