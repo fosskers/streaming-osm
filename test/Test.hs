@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main where
 
 import           Codec.Compression.Zlib (decompress)
@@ -83,6 +85,8 @@ suite = testGroup "Unit Tests"
     , testCase "North Van" $ fileS "test/north-van.osm.pbf" (48596, 7757, 52)
 --    , testCase "Vancouver" $ fileS "test/vancouver.osm.pbf" (804749, 156053, 1689)
     ]
+  , testGroup "Misc."
+    [ testCase "Relation Ref Values: Diomede" refValues ]
   ]
 
 assertRight :: Either t1 t -> Assertion
@@ -234,3 +238,11 @@ fileT f = do
     Left err -> pure $ Left err
     Right (Blob (Left bs)) -> pure $ A.parseOnly block bs
     Right (Blob (Right (_, bs))) -> pure $ A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
+
+refValues :: Assertion
+refValues = fileT "test/diomede.osm.pbf" >>= \case
+  Left _ -> assertFailure "Couldn't parse the file."
+  Right (Block _ _ ((Relation [m0, m1] _ _):_)) -> do
+    _mref m0 @?= 32973894
+    _mref m1 @?= 4571349198
+  Right (Block _ _ _) -> assertFailure "Incorrect relation structure."
