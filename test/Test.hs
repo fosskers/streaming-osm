@@ -86,7 +86,9 @@ suite = testGroup "Unit Tests"
 --    , testCase "Vancouver" $ fileS "test/vancouver.osm.pbf" (804749, 156053, 1689)
     ]
   , testGroup "Misc."
-    [ testCase "Relation Ref Values: Diomede" refValues ]
+    [ testCase "Relation Ref Values: Diomede" diomedeRefValues
+    , testCase "Relation Ref Values: Ajishima" ajishimaRefValues
+    ]
   ]
 
 assertRight :: Either t1 t -> Assertion
@@ -239,10 +241,22 @@ fileT f = do
     Right (Blob (Left bs)) -> pure $ A.parseOnly block bs
     Right (Blob (Right (_, bs))) -> pure $ A.parseOnly block . BL.toStrict . decompress $ BL.fromStrict bs
 
-refValues :: Assertion
-refValues = fileT "test/diomede.osm.pbf" >>= \case
+diomedeRefValues :: Assertion
+diomedeRefValues = fileT "test/diomede.osm.pbf" >>= \case
   Left _ -> assertFailure "Couldn't parse the file."
   Right (Block _ _ ((Relation [m0, m1] _ _):_)) -> do
     _mref m0 @?= 32973894
     _mref m1 @?= 4571349198
   Right (Block _ _ _) -> assertFailure "Incorrect relation structure."
+
+ajishimaRefValues :: Assertion
+ajishimaRefValues = fileT "test/ajishima.osm.pbf" >>= \case
+  Left _ -> assertFailure "Couldn't parse the file."
+  Right (Block _ _ rs) -> case filter p rs of
+    [] -> assertFailure "Couldn't find the expected Relation."
+    (Relation ms _ ts : _) -> do
+      length ms @?= 19
+      length ts @?= 6
+  where
+    p (Relation _ (Just i) _) = _id i == 1341344
+    p _                       = False
