@@ -1,6 +1,6 @@
 cabal-version:      2.2
 name:               streaming-osm
-version:            1.0.1
+version:            1.0.2
 synopsis:
   A hand-written streaming byte parser for OpenStreetMap Protobuf data.
 
@@ -16,7 +16,8 @@ category:           Streaming
 homepage:           https://github.com/fosskers/streaming-osm
 build-type:         Simple
 extra-source-files:
-  ChangeLog.md
+  CHANGELOG.md
+  README.md
   test/*.osm.pbf
 
 common commons
