@@ -116,7 +116,7 @@ relation st = do
   vs <- packed <$> (A.word8 0x1a *> varint >>= A.take) <|> pure []                -- vals
   oi <- optional (A.word8 0x22 *> varint *> info i st)                            -- info
   rs <- packed <$> (A.word8 0x42 *> varint >>= A.take) <|> pure []                -- roles_sid
-  ms <- map unzig . packed <$> (A.word8 0x4a *> varint >>= A.take) <|> pure []    -- memids
+  ms <- ints <$> (A.word8 0x4a *> varint >>= A.take) <|> pure []                  -- memids
   ts <- map memtype . packed <$> (A.word8 0x52 *> varint >>= A.take) <|> pure []  -- types
   let tags = M.fromList $ zip (map (V.unsafeIndex st) ks) (map (V.unsafeIndex st) vs)
       mems = zipWith3 Member ms ts $ map (V.unsafeIndex st) rs

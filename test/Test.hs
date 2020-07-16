@@ -257,6 +257,8 @@ ajishimaRefValues = fileT "test/ajishima.osm.pbf" >>= \case
     (Relation ms _ ts : _) -> do
       length ms @?= 19
       length ts @?= 6
+      _mref (head ms) @?= 179786323
+      _mref (last ms) @?= 91476273
   where
     p (Relation _ (Just i) _) = _id i == 1341344
     p _                       = False
